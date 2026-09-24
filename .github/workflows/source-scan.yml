@@ -1,0 +1,127 @@
+name: Source scan
+
+# Source scans run on PRs only. The future Azure CD workflow owns push: main.
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: source-scan-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  gitleaks-scan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: bash scripts/ci/scan-source.sh gitleaks-scan "$RUNNER_TEMP/hanoitrip-reports"
+      - name: Preserve redacted report even on failure
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: source-gitleaks
+          path: ${{ runner.temp }}/hanoitrip-reports/gitleaks.json
+          if-no-files-found: error
+          retention-days: 7
+
+  trivy-source-sbom:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - run: bash scripts/ci/scan-source.sh trivy-source-sbom "$RUNNER_TEMP/hanoitrip-reports"
+      - name: Preserve SCA report and CycloneDX SBOM
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: source-trivy-dependencies
+          path: |
+            ${{ runner.temp }}/hanoitrip-reports/trivy-source.json
+            ${{ runner.temp }}/hanoitrip-reports/sbom.cdx.json
+          if-no-files-found: error
+          retention-days: 7
+
+  trivy-misconfig:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - run: bash scripts/ci/scan-source.sh trivy-misconfig "$RUNNER_TEMP/hanoitrip-reports"
+      - name: Preserve IaC and Dockerfile report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: source-trivy-misconfig
+          path: ${{ runner.temp }}/hanoitrip-reports/trivy-misconfig.json
+          if-no-files-found: error
+          retention-days: 7
+
+  semgrep-sast:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - run: bash scripts/ci/scan-source.sh semgrep-sast "$RUNNER_TEMP/hanoitrip-reports"
+      - name: Preserve SAST JSON and SARIF
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: source-semgrep
+          path: |
+            ${{ runner.temp }}/hanoitrip-reports/semgrep.json
+            ${{ runner.temp }}/hanoitrip-reports/semgrep.sarif
+          if-no-files-found: error
+          retention-days: 7
+
+  security-gate:
+    name: source-security-gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    if: ${{ always() }}
+    needs: [gitleaks-scan, trivy-source-sbom, trivy-misconfig, semgrep-sast]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: source-*
+          path: ${{ runner.temp }}/hanoitrip-reports
+          merge-multiple: true
+      - name: Verify severity policy
+        run: python3 -m unittest discover -s tests/ci -v
+      - name: Report findings and enforce policy
+        if: ${{ always() }}
+        env:
+          SCAN_JOB_RESULTS: >-
+            {"gitleaks-scan":"${{ needs.gitleaks-scan.result }}",
+             "trivy-source-sbom":"${{ needs.trivy-source-sbom.result }}",
+             "trivy-misconfig":"${{ needs.trivy-misconfig.result }}",
+             "semgrep-sast":"${{ needs.semgrep-sast.result }}"}
+        run: python3 scripts/ci/security_gate.py --reports "$RUNNER_TEMP/hanoitrip-reports"
+      - name: Preserve gate summary
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: security-gate-summary
+          path: ${{ runner.temp }}/hanoitrip-reports/summary.md
+          if-no-files-found: error
+          retention-days: 7

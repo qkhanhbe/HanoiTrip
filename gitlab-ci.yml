@@ -1,0 +1,107 @@
+# GitLab CI/CD — Intern.
+#
+# MR -> source scan (gitleaks / trivy-source / trivy-misconfig / semgrep)
+#    -> severity-check (MEDIUM/LOW findings => pipeline "passed with warnings" / orange)
+# Pushes to main do not create a pipeline.
+#
+# Scan logic lives in the Platform `centralize-ci-templates` scan-source component,
+# same as WMS.BE. gosec/python/mobsf self-skip (their `exists:` rules find no Go,
+# Python or mobile sources in this Next.js repo).
+#
+# DD/DT upload (upload-scan-source) is disabled — see the job override below.
+
+include:
+  # rate_mode standard = block CRITICAL+HIGH on SAST/misconfig; SCA gated by TI blacklist.
+  - component: gitlab.vinsmartfuture.tech/shared/vsf-ptnt/centralize-ci-templates/scan-source@v2.4.0
+    inputs:
+      rate_mode: standard
+      runner_tags: [intern, nonprod, vsf-vf-kdhmdl]
+      stage: scan
+      upload_stage: scan
+
+stages:
+  - scan
+  - report
+
+# MR pipelines only — no pipeline on merge to main.
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - when: never
+
+default:
+  tags: [intern, nonprod, vsf-vf-kdhmdl]
+
+.rules_mr:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+# ============================== SCAN (whole repo) =============================
+# Jobs come from the scan-source component (see include), which ships them
+# ruleless. Pin them to MR pipelines explicitly.
+
+# GIT_DEPTH:"0" = full-history clone so gitleaks attributes each pre-existing secret to
+# its real introducing commit (stable across MRs), which keeps .gitleaksignore
+# fingerprints valid. A shallow clone would attribute them to a shifting boundary commit.
+gitleaks-scan: { variables: { GIT_DEPTH: '0' }, rules: !reference [.rules_mr, rules] }
+trivy-source-sbom: { rules: !reference [.rules_mr, rules] }
+trivy-misconfig: { rules: !reference [.rules_mr, rules] }
+semgrep-sast: { rules: !reference [.rules_mr, rules] }
+
+# Upload to DefectDojo/Dependency-Track is not used — never create this job.
+upload-scan-source: { rules: [{ when: never }] }
+
+# ============================== REPORT ========================================
+# CRITICAL/HIGH are already blocked by the component gates (red pipeline).
+# This job pulls the scan artifacts and exits 3 when it finds MEDIUM/LOW findings;
+# allow_failure on exit code 3 turns the pipeline orange ("passed with warnings")
+# without blocking the MR. Any other non-zero exit (script error) stays red.
+#
+# Report paths/formats are not pinned: every *.json / *.sarif artifact is scanned
+# for severity fields (Trivy `Severity`, GitLab/CycloneDX `severity`, Semgrep
+# `extra.severity` WARNING/INFO, SARIF `level` warning/note).
+severity-check:
+  stage: report
+  image: ${SEVERITY_CHECK_IMAGE}
+  variables:
+    SEVERITY_CHECK_IMAGE: alpine:3.20
+    GIT_STRATEGY: none # workspace = artifacts only, so repo JSON (package.json…) is not scanned
+  needs:
+    - { job: gitleaks-scan, artifacts: true, optional: true }
+    - { job: trivy-source-sbom, artifacts: true, optional: true }
+    - { job: trivy-misconfig, artifacts: true, optional: true }
+    - { job: semgrep-sast, artifacts: true, optional: true }
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: always
+  allow_failure:
+    exit_codes: [3]
+  script:
+    - command -v jq >/dev/null || apk add --no-cache jq >/dev/null
+    - |
+      reports=$(find . -type f \( -name '*.json' -o -name '*.sarif' \) 2>/dev/null)
+      if [ -z "$reports" ]; then
+        echo "WARN: no scan report artifacts found — cannot check MEDIUM/LOW findings."
+        exit 0
+      fi
+      medium=0; low=0
+      for f in $reports; do
+        counts=$(jq -r '
+          [ .. | objects | (
+              (.Severity? // .severity? // empty | strings | ascii_upcase),
+              (.extra?.severity? // empty | strings | ascii_upcase
+                 | if . == "WARNING" then "MEDIUM" elif . == "INFO" then "LOW" else empty end),
+              (select(has("ruleId")) | .level? // empty | strings
+                 | if . == "warning" then "MEDIUM" elif . == "note" then "LOW" else empty end)
+            ) ]
+          | "\(map(select(. == "MEDIUM")) | length) \(map(select(. == "LOW")) | length)"
+        ' "$f" 2>/dev/null) || continue
+        set -- $counts
+        [ "$1$2" = "00" ] || echo "$f: MEDIUM=$1 LOW=$2"
+        medium=$((medium + $1)); low=$((low + $2))
+      done
+      echo "Total: MEDIUM=$medium LOW=$low"
+      if [ $((medium + low)) -gt 0 ]; then
+        echo "MEDIUM/LOW findings present — marking pipeline as passed with warnings."
+        exit 3
+      fi
