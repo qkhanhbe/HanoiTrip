@@ -6,6 +6,8 @@
 
 ## 1. Quyết định đã chốt
 
+Đối chiếu mới nhất: [Requirements audit](docs/REQUIREMENTS_AUDIT.md). Hướng dẫn bổ sung build Dockerfile khi mở MR được áp dụng cho GitHub PR trong required job `container-check`: build riêng, smoke với `--no-build`, không push image. Snapshot template/TI blacklist nay đã được cung cấp tại workspace; các ghi chú bên dưới về thiếu nguồn là trạng thái lịch sử, còn việc đối chiếu/tích hợp policy chưa hoàn tất.
+
 ### Cập nhật phạm vi ngày 25/09/2026
 
 Hoàn thiện phần bắt buộc ở mức first-pass chỉnh chu, áp dụng những nội dung đã học và phát hành bằng GitHub feature branch → PR → CI → squash merge `main`. CI/CD và Terraform được phép đưa vào repo; Azure deploy thật chỉ bật khi có OIDC/resource và phải có evidence thật.

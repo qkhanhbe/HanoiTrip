@@ -1,5 +1,7 @@
 # CI/CD GitHub Actions
 
+Hướng dẫn bổ sung “build Dockerfile validate trong MR” được ánh xạ sang required job `container-check` trên PR: build image trong step riêng, Compose smoke dùng `--no-build`, rồi scan cùng image. Xem [đối chiếu đề gốc](REQUIREMENTS_AUDIT.md) cho các phần đã đạt/chưa đạt và trạng thái template mới.
+
 Workflow hoạt động nằm trong `.github/workflows/`: `source-scan.yml` và `ci.yml` chạy trên PR vào `main`; `cd.yml` chạy sau push `main` nhưng deploy job mặc định bị khóa bằng `AZURE_CD_ENABLED` cho tới khi Azure/OIDC sẵn sàng. Không duy trì thêm một bộ workflow nháp song song để tránh cấu hình lệch nhau.
 
 Tài liệu này giải thích phần CI của [masterplan](../MASTERPLAN_HANOI_TRIP_PLANNER.md), không thay thế masterplan.
