@@ -89,12 +89,16 @@ jobs:
           TF_VAR_allowed_ip_cidrs: ${{ vars.AZURE_ALLOWED_IP_CIDRS_JSON }}
           TF_VAR_alert_email: ${{ vars.AZURE_ALERT_EMAIL }}
           TF_VAR_github_actions_principal_object_id: ${{ vars.AZURE_DEPLOY_PRINCIPAL_OBJECT_ID }}
+          TFSTATE_RESOURCE_GROUP: ${{ vars.AZURE_TFSTATE_RESOURCE_GROUP }}
+          TFSTATE_STORAGE_ACCOUNT: ${{ vars.AZURE_TFSTATE_STORAGE_ACCOUNT }}
+          TFSTATE_CONTAINER: ${{ vars.AZURE_TFSTATE_CONTAINER }}
+          TFSTATE_KEY: ${{ vars.AZURE_TFSTATE_KEY }}
         run: |
           terraform -chdir=terraform/app init -input=false \
-            -backend-config="resource_group_name=${{ vars.AZURE_TFSTATE_RESOURCE_GROUP }}" \
-            -backend-config="storage_account_name=${{ vars.AZURE_TFSTATE_STORAGE_ACCOUNT }}" \
-            -backend-config="container_name=${{ vars.AZURE_TFSTATE_CONTAINER }}" \
-            -backend-config="key=${{ vars.AZURE_TFSTATE_KEY }}" \
+            -backend-config="resource_group_name=$TFSTATE_RESOURCE_GROUP" \
+            -backend-config="storage_account_name=$TFSTATE_STORAGE_ACCOUNT" \
+            -backend-config="container_name=$TFSTATE_CONTAINER" \
+            -backend-config="key=$TFSTATE_KEY" \
             -backend-config="use_azuread_auth=true"
           terraform -chdir=terraform/app plan -input=false -out="$RUNNER_TEMP/hanoitrip.tfplan"
           terraform -chdir=terraform/app show -no-color "$RUNNER_TEMP/hanoitrip.tfplan" > "$RUNNER_TEMP/terraform-plan.txt"
