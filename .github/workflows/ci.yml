@@ -114,6 +114,9 @@ jobs:
     name: container-check
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      BUILD_SHA: ${{ github.event.pull_request.head.sha }}
+      DIAGNOSTICS_ENABLED: 'true'
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -122,13 +125,12 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
-      - name: Build sandbox image and start MySQL
-        env:
-          BUILD_SHA: ${{ github.event.pull_request.head.sha }}
-          DIAGNOSTICS_ENABLED: 'true'
+      - name: Validate Dockerfile build (PR only, no push)
+        run: docker build --file Dockerfile --build-arg "BUILD_SHA=$BUILD_SHA" --tag "hanoitrip:$BUILD_SHA" .
+      - name: Start MySQL and smoke-test image without rebuilding
         run: |
           node scripts/setup-local.mjs
-          docker compose up --build -d --wait
+          docker compose up --no-build -d --wait
       - name: Probe SPA, API, MySQL and diagnostics
         env:
           SMOKE_WRITE: '1'
