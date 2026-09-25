@@ -97,7 +97,7 @@ Các test dùng report giả để kiểm tra severity mapping, thiếu/hỏng r
 7. Merge/push main không chạy source-scan; khi CD được thêm, xác nhận CD chạy đúng.
 8. Ghi rõ chưa xác nhận TI blacklist/ruleset nội bộ; cập nhật policy khi nhận đủ thông tin.
 
-Local run ngày 25/09/2026 đã chạy đủ bốn scanner: 0 secret/Critical/High, 4 Medium + 4 Low IaC, gate `PASS WITH WARNINGS`; Semgrep không còn parse error. Điều này chưa thay thế Actions run/ruleset thật. Terraform đã fmt/validate nhưng chưa plan/apply Azure; CD chưa được bật.
+Local run ngày 25/09/2026 đã chạy đủ bốn scanner: 0 secret/Critical/High, 4 Medium + 4 Low IaC, gate `PASS WITH WARNINGS`. PR #1 sau một lần sửa parser Semgrep đã xanh toàn bộ và squash merge qua ruleset `protect-main`; CD main trigger thành công nhưng deploy skipped theo safety flag. Terraform đã fmt/validate nhưng chưa plan/apply Azure.
 
 ## Tài liệu chính thức
 
