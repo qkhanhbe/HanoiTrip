@@ -1,62 +1,94 @@
-# Hanoi Trip Planner trên Azure
+# HanoiTrip
 
-Web app lập hành trình giao thông công cộng tại Hà Nội, giao diện lấy cảm hứng từ Opal. Stack dự kiến: React + TypeScript, Node.js + TypeScript, MySQL, một Docker image trên Azure App Service với staging slot.
+Web app lập hành trình giao thông công cộng tại Hà Nội: React/TypeScript, Node/TypeScript, MySQL; giao diện gọn lấy cảm hứng từ Opal. Một Docker image phục vụ cả frontend và API.
 
-## Trạng thái hiện tại
+Repo hiện có app local, CI/source-security workflow, CD disabled-by-default và Terraform cho Azure. App/CI local đã kiểm chứng; các mốc Azure chỉ được coi là đạt sau khi có resource và evidence thật trong `evidence/`.
 
-Có masterplan, sơ đồ và workflow **source scan trên GitHub Actions**. Chưa có app/Dockerfile/Terraform hoặc CD Azure chạy thật. Kết quả scan sạch khi chưa có app không được coi là evidence hoàn thành bài thực tập.
+## Chạy trên máy hiện tại (Ubuntu, giữ WARP bật)
 
-- [Masterplan duy nhất](MASTERPLAN_HANOI_TRIP_PLANNER.md)
-- [CI GitHub: policy, cách chạy và phần chưa chuyển tương đương](docs/CI_GITHUB.md)
-- [Sơ đồ tổng quan](docs/hanoitrip-azure-flow.png) · [bản Excalidraw](docs/hanoitrip-azure-flow.excalidraw)
-- [Workflow source scan](.github/workflows/source-scan.yml)
-
-## CI mới trên GitHub
-
-PR vào `main` chạy song song Gitleaks, Trivy dependency/SBOM, Trivy IaC/Dockerfile và Semgrep SAST. Job `source-security-gate` tổng hợp report:
-
-| Kết quả | Gate |
-|---|---|
-| Có secret hoặc HIGH/CRITICAL | Fail; chặn merge khi required check được cấu hình |
-| Chỉ MEDIUM/LOW | Pass, có warning annotation và Summary |
-| Không có finding | Pass |
-| Scanner lỗi, report thiếu/hỏng hoặc severity chưa biết | Fail; không coi scan chưa hoàn tất là sạch |
-
-Policy dependency HIGH/CRITICAL là phương án tạm thời: template gốc nhắc tới **TI blacklist nội bộ**, chưa có nội dung để chuyển tương đương. Xem chi tiết trong [CI GitHub](docs/CI_GITHUB.md).
-
-Source scan chỉ chạy trên PR. CD Azure sẽ là workflow riêng chạy khi push vào `main`, sau khi app và hạ tầng sẵn sàng.
-
-## Kiểm tra local
-
-Yêu cầu Python 3 để kiểm tra policy:
+Máy có Node 18; lệnh dưới dùng Node 22 qua npm, không thay Node hệ thống.
 
 ```bash
-python3 -m unittest discover -s tests/ci -v
+cd /home/tts/tts/HanoiTrip
+node scripts/setup-local.mjs
+docker compose -f compose.yml -f compose.socket.yml up -d --wait mysql
+npx --yes --package=node@22 --call 'npm ci && npm run build'
+MYSQL_SOCKET_PATH="$PWD/.local/mysql-run/mysqld.sock" npx --yes --package=node@22 --call 'npm run migrate'
+npx --yes --package=node@22 --call 'npm run start:local'
 ```
 
-Chạy scanner cần Docker Linux/amd64, Git checkout đầy đủ lịch sử và truy cập được registry/rules/database công khai:
+Mở **http://127.0.0.1:8080**. `Ctrl+C` dừng app; MySQL vẫn giữ dữ liệu. Nếu container app đang chiếm port 8080, chạy `docker compose stop app` trước.
+
+`start:local` tự nhận Unix socket nếu tồn tại: kết nối có mật khẩu giữa hai tiến trình trên cùng máy qua file socket, không tắt/đổi WARP. Máy khác có Node 22 và TCP Docker bình thường có thể dùng `npm ci`, `docker compose up -d --wait mysql`, `npm run migrate`, `npm run build`, `npm start`.
+
+Vào MySQL không phải gõ lại mật khẩu local:
 
 ```bash
-scan_reports=$(mktemp -d)
-bash scripts/ci/scan-source.sh gitleaks-scan "$scan_reports"
-bash scripts/ci/scan-source.sh trivy-source-sbom "$scan_reports"
-bash scripts/ci/scan-source.sh trivy-misconfig "$scan_reports"
-bash scripts/ci/scan-source.sh semgrep-sast "$scan_reports"
-python3 scripts/ci/security_gate.py --reports "$scan_reports"
+npm run db:shell
 ```
 
-Nếu một scanner lỗi, phải xử lý và chạy lại; không dùng report cũ để kết luận scan đã thành công. Workflow GitHub còn kiểm tra trạng thái của đủ bốn job.
+Khi thấy `mysql>`:
 
-## Đưa lên GitHub
+```sql
+SHOW TABLES;
+SELECT id, label, created_at FROM items ORDER BY created_at DESC LIMIT 5;
+exit;
+```
 
-Sau khi tạo repo bài làm và push các file, mở PR vào `main`. Trong ruleset bảo vệ `main`, yêu cầu PR và chọn check `source-security-gate`; kiểm tra bằng PR đỏ thật. Việc này cần làm trên repo GitHub, chưa được cấu hình bởi các file local.
+Chi tiết Docker, tắt/bật DB và network: [LOCAL_SETUP.md](docs/LOCAL_SETUP.md). Không commit hoặc gửi `.env` cho người khác. Không dùng `docker compose down -v` nếu cần giữ dữ liệu.
 
-Quy tắc AI-OFF/khai báo AI trong PR thực hiện theo lịch người giao bài, như masterplan. Mẫu PR có phần khai báo AI và kết quả kiểm chứng.
+## Dùng thử
 
-## Tài liệu gốc để đối chiếu
+1. Chọn điểm đi/đến từ gợi ý, hoặc nhập `vĩ độ, kinh độ`.
+2. Chọn Đi ngay/Chọn giờ rồi **Tìm hành trình**.
+3. Chọn phương án để đổi route trên map, mở **Chi tiết hành trình**.
+4. **Lưu**, mở tab **Đã lưu** rồi chọn lại để tìm lịch trình mới.
 
-- [Hướng dẫn source scan GitLab được cung cấp](README%20%281%29.md)
-- [Pipeline GitLab được cung cấp](gitlab-ci.yml)
-- [README GitLab mặc định trước khi chuyển](docs/reference/gitlab-template-README.md)
+Mặc định dùng **bản đồ Hà Nội thật từ OpenFreeMap/OpenStreetMap**, hiển thị bằng MapLibre, không cần API key. Có kéo, zoom, chọn điểm đi/đến trên map và nút về trung tâm Hà Nội. Bản đồ tải trực tiếp từ `https://tiles.openfreemap.org`; cần Internet và WebGL. Giữ attribution hiển thị trên map; nếu tải lỗi, dùng nút thử lại, không tắt WARP.
 
-Các file gốc là nguồn tham khảo. GitHub chạy file trong `.github/workflows/`; các gợi ý Kubernetes/AWS của README GitLab mặc định không phải yêu cầu bổ sung cho HanoiTrip.
+**Tuyến và thời gian vẫn là dữ liệu minh họa**, không phải lịch trình để đi thực tế. Đường demo vẽ nét đứt, không bảo đảm bám đường phố. Favorites dùng chung trong sandbox; không có tài khoản cá nhân. Gợi ý địa danh là danh sách giới hạn, không phải Google Places autocomplete. Chọn tọa độ trên bản đồ không tự tra tên địa chỉ.
+
+Adapter Google Routes và Google Maps đã có code; **chưa kiểm chứng live vì chưa cấu hình key**. Khi học đến integration, dùng `ROUTES_MODE=google`, server Routes key và browser Maps key riêng. Google mode không tự đổi sang dữ liệu giả khi provider lỗi. Browser key phải giới hạn domain/API; server key không gửi xuống browser.
+
+## API local
+
+| Endpoint                       | Hành vi                                                 |
+| ------------------------------ | ------------------------------------------------------- |
+| `GET /health`                  | 200 khi DB/bảng items truy cập được, 503 khi DB lỗi     |
+| `GET /version`                 | buildSha, version, environment; không trả secret        |
+| `GET /items?limit=30&offset=0` | Liệt kê favorites; limit tối đa 100                     |
+| `POST /items`                  | Lưu label + điểm đi/đến, server tạo UUID, trả 201       |
+| `POST /routes`                 | Validate A/B/thời gian, chuẩn hóa route provider        |
+| `GET /boom`                    | Ném exception, trả 500 + request ID khi diagnostics bật |
+| `GET /load?seconds=1`          | CPU worker 1–5 giây, một lượt đồng thời, rate limit     |
+| `GET /config`                  | Chế độ route/storage + browser Maps key công khai       |
+
+`/boom` và `/load` mặc định tắt (404). Chỉ bật `DIAGNOSTICS_ENABLED=true` khi học/test local hoặc sandbox được bảo vệ. Dùng app đã build để chạy CPU worker. JSON logs có requestId, buildSha, statusCode, durationMs; không ghi body/password. Migration là lệnh riêng, không tự chạy mỗi lần web server khởi động.
+
+## Kiểm chứng local
+
+```bash
+npx --yes --package=node@22 --call 'npm run check'
+MYSQL_TEST=1 MYSQL_SOCKET_PATH="$PWD/.local/mysql-run/mysqld.sock" npx --yes --package=node@22 --call 'node --env-file=.env node_modules/vitest/vitest.mjs run tests/app/mysql.integration.test.ts'
+npx --yes --package=node@22 --call 'npm run smoke'
+```
+
+`check` gồm format, lint, typecheck, unit/API/UI tests và build. MySQL integration là opt-in riêng; skipped không tính là pass. Test DB chỉ xóa các hàng do chính nó tạo. `test:browser` kiểm tra desktop/mobile, tải map thật, pan/zoom/chọn điểm; cần Chromium hỗ trợ WebGL, Internet và ghi một favorite minh họa. Unit/UI tests mock phần WebGL, không gọi dịch vụ bản đồ. [Kết quả kiểm chứng](docs/LOCAL_VALIDATION.md).
+
+## GitHub flow và Azure
+
+- Tạo nhánh `feat/`, `fix/` hoặc `chore/`, mở PR vào `main`; PR chạy app tests, Terraform fmt/validate, Docker/MySQL smoke, image scan và bốn source scanner.
+- `source-security-gate` chặn secret, HIGH/CRITICAL, report thiếu/hỏng hoặc scanner lỗi; MEDIUM/LOW tạo warning.
+- Sau squash merge, CD chỉ báo `pending` cho tới khi `AZURE_CD_ENABLED=true` và OIDC/repository variables/environment đã được cấu hình. Không dùng client secret.
+- Terraform tách `bootstrap/` (remote state) và `app/` (workload). Xem [terraform/README.md](terraform/README.md) và [CI_GITHUB.md](docs/CI_GITHUB.md).
+- Teardown workload bằng `terraform -chdir=terraform/app destroy`; chỉ xóa backend sau khi state không còn cần. Không commit state, plan binary, `.env`, `tfvars`, backend config hoặc IP thật.
+
+## Tài liệu
+
+- [Masterplan duy nhất](MASTERPLAN_HANOI_TRIP_PLANNER.md).
+- [AGENT.MD](AGENT.MD): yêu cầu, harness, validation và ranh giới công việc.
+- [Kiến trúc traffic/auth/release](architecture.md) và [sơ đồ Excalidraw](docs/hanoitrip-azure-flow.png).
+- [CI/CD GitHub](docs/CI_GITHUB.md), [runbook](runbook.md), [known issues](known-issues.md) và [evidence index](evidence/README.md).
+- Nguồn GitLab: [README (1)](README%20%281%29.md), [gitlab-ci.yml](gitlab-ci.yml), [README template](docs/reference/gitlab-template-README.md).
+
+App local hoặc workflow xanh không tự động chứng minh Azure. Google live, ACR/MI/Key Vault, slot swap, Terraform rebuild và monitoring vẫn phải có evidence thật trước khi đánh dấu hoàn thành.

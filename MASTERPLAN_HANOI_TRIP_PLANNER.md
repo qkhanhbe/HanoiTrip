@@ -6,11 +6,17 @@
 
 ## 1. Quyết định đã chốt
 
+### Cập nhật phạm vi ngày 25/09/2026
+
+Hoàn thiện phần bắt buộc ở mức first-pass chỉnh chu, áp dụng những nội dung đã học và phát hành bằng GitHub feature branch → PR → CI → squash merge `main`. CI/CD và Terraform được phép đưa vào repo; Azure deploy thật chỉ bật khi có OIDC/resource và phải có evidence thật.
+
+Đã có source React/Node, MySQL local, Dockerfile distroless, test, active GitHub workflows, Terraform bootstrap/app và bộ deliverable. Google live/Azure vẫn chưa test vì chưa có credentials/resources; chế độ demo và mọi trạng thái pending phải ghi rõ. Xem README, `docs/LOCAL_VALIDATION.md`, `known-issues.md` và `evidence/`.
+
 | Hạng mục | Quyết định |
 |---|---|
 | Product | **Hanoi Trip Planner**: lập hành trình A → B bằng giao thông công cộng, giao diện gọn lấy cảm hứng từ Opal Travel; không sao chép thương hiệu hoặc UI nguyên bản. |
 | Route engine | **Google Routes API** là nguồn tính route chính. Không dùng LLM trong luồng tìm đường. |
-| Bản đồ | Google Maps JavaScript API để hiển thị map, marker và route Google. |
+| Bản đồ | Google Maps JavaScript API để hiển thị marker và route Google. Bản demo local dùng MapLibre + OpenFreeMap, bản đồ thật khu vực Hà Nội; chỉ vẽ tuyến demo nét đứt, không vẽ route Google lên bản đồ này. |
 | Dữ liệu transit phụ | BusMaps chỉ là nguồn bổ sung sau khi kiểm tra API, giới hạn và license. Không reverse-engineer/scrape API nội bộ của VinBus, ứng dụng vé, Grab hay XanhSM. |
 | Cá nhân hoá | Không làm thuật toán ưu tiên route ở v1. Google trả các phương án; UI trình bày rõ thời gian, số lần chuyển tuyến, đi bộ và từng chặng. |
 | Dữ liệu app | MySQL lưu hành trình yêu thích; bảng phục vụ đề vẫn tên/endpoint là `items`. |
@@ -194,9 +200,9 @@ flowchart LR
 
 Chi tiết triển khai, mapping và giới hạn ở [docs/CI_GITHUB.md](docs/CI_GITHUB.md). Hai workflow CI được phân vai:
 
-- `.github/workflows/source-scan.yml` **đã có file local**: chỉ `pull_request` vào `main`, bốn scanner song song rồi `source-security-gate`. Không chạy khi push/merge `main` và không có quyền deploy.
-- `.github/workflows/ci.yml` **sẽ tạo khi app/Terraform có thật**: lint/test/build, Terraform fmt/init/validate/plan artifact, build container và Trivy image scan. Source scan không thay thế kiểm tra lỗ hổng của image/base OS.
-- `.github/workflows/cd.yml` **sẽ tạo ở bước release**: `push` vào `main` → build một release image SHA → scan → push ACR → staging → smoke → observer → swap → verify/rollback. Quy tắc PR-only của source scan không hủy yêu cầu CD này.
+- `.github/workflows/source-scan.yml`: PR-only, bốn scanner song song rồi `source-security-gate`.
+- `.github/workflows/ci.yml`: app lint/test/build, gate tests, Terraform fmt/init/validate và optional OIDC plan artifact, Docker/MySQL smoke + image scan. Source scan không thay thế kiểm tra image/base OS.
+- `.github/workflows/cd.yml`: `push` vào `main` → build một release image SHA → scan → push ACR → staging → smoke → observer → swap → verify/rollback; deploy bị khóa cho tới khi Azure/OIDC sẵn sàng. Quy tắc PR-only của source scan không hủy yêu cầu CD này.
 
 | Job | Yêu cầu được hợp nhất | Artifact |
 |---|---|---|
@@ -223,7 +229,7 @@ Required checks cần cấu hình trong ruleset bảo vệ `main`: bắt buộc 
 
 ### Trạng thái và evidence CI hiện tại
 
-Đã có workflow source scan, script scan/gate và test policy local. Chưa có GitHub run hoặc ruleset để chứng minh merge bị chặn. Hạ tầng, app và các gate triển khai khác vẫn ở trạng thái kế hoạch. Sơ đồ là kiến trúc mục tiêu; bảng milestone dưới đây chỉ được đánh dấu đạt khi có evidence thật.
+Đã chạy local app/container/source scan/gate tests; workflow active và Terraform đã validate. Chưa có GitHub PR run/ruleset evidence ở thời điểm viết đoạn này; chưa plan/apply Azure. Bảng milestone chỉ đánh dấu đạt khi có evidence thật.
 
 ## 6. Milestone kỹ thuật
 
@@ -247,7 +253,7 @@ Required checks cần cấu hình trong ruleset bảo vệ `main`: bắt buộc 
 - `D` là ngày trong lịch của người giao, có gate và evidence bắt buộc.
 - `Day` là đơn vị học trong chương trình cá nhân. Học ba `Day` trong một ngày lịch chỉ tăng tốc phần hiểu; một ngày thực hành chỉ hoàn thành khi có sản phẩm/evidence chạy thật.
 - Tại **22/09/2026**, cuộc học đang ở **Day 3**. Theo thông tin “ba ngày nữa là D10”, tạm ánh xạ hôm nay là **D7 của người giao** và D10 rơi vào **25/09/2026**. Nếu lịch của người giao khác, dùng ngày của họ làm chuẩn.
-- Tại lần lập lịch 22/09/2026, project chỉ có masterplan. Sau khi hợp nhất yêu cầu CI mới, đã có README, sơ đồ, workflow source scan và test gate local; chưa có source app, Dockerfile, Terraform, CD hoặc evidence GitHub/Azure để xác nhận các gate thực hành. Lịch bên dưới là mốc kế hoạch gốc, không phải ngày hoàn thành thực tế.
+- Tại lần lập lịch 22/09/2026, project chỉ có masterplan. Đến 25/09 đã có app local, CI/CD first-pass, Terraform và deliverable skeleton; GitHub/Azure milestone vẫn phụ thuộc run/evidence thật. Lịch bên dưới là kế hoạch học gốc, không phải ngày hoàn thành thực tế.
 
 | Ngày lịch | Nếu học đủ 3 Day/ngày | Việc phải có để kịp gate thực tế |
 |---|---|---|
@@ -306,7 +312,7 @@ Required checks cần cấu hình trong ruleset bảo vệ `main`: bắt buộc 
 
 ## 8. Cấu trúc repo app cần tạo
 
-Project app dùng thư mục `/home/tts/tts/HanoiTrip/`; `AzureLearn/` chỉ là repo học. Repo bài làm sẽ được khởi tạo trong `HanoiTrip/` khi bắt đầu phần làm.
+Project app dùng `/home/tts/tts/HanoiTrip/`; `AzureLearn/` chỉ là repo học. Remote GitHub đã được bootstrap `main`; thay đổi hiện tại đi qua feature branch/PR. Cây dưới là cấu trúc hiện tại; evidence cloud vẫn pending.
 
 ```text
 HanoiTrip/
@@ -317,9 +323,9 @@ HanoiTrip/
 │   ├── bootstrap/           # state storage, vòng đời riêng
 │   └── app/                 # toàn bộ infra còn lại
 ├── .github/workflows/
-│   ├── source-scan.yml      # đã có: PR source security scans + gate
-│   ├── ci.yml               # sẽ tạo: app/IaC/image checks
-│   └── cd.yml               # sẽ tạo: main → Azure release
+│   ├── source-scan.yml      # PR source security scans + gate
+│   ├── ci.yml               # app/IaC/image checks
+│   └── cd.yml               # main → Azure release, disabled until configured
 ├── .github/pull_request_template.md
 ├── scripts/ci/              # scan-source.sh + security_gate.py
 ├── tests/ci/                # test gate policy bằng dữ liệu giả
@@ -366,8 +372,8 @@ Project chỉ “xong” khi đồng thời đúng ba điều:
 
 ## 12. Việc tiếp theo
 
-1. Quay lại Day 3: chốt contract `items`, route response và test/JSON-log contract trước khi code.
-2. Khi làm app, khởi tạo repo bài làm ngay trong `/home/tts/tts/HanoiTrip/` và tuân thủ quy tắc AI-OFF/khai báo AI theo ngày của người giao.
-3. Chỉ thiết lập Google API keys khi đến phần integration; ghi key policy vào decision log.
-4. Đưa workflow source scan lên repo GitHub bài làm, mở PR kiểm chứng, cấu hình required check `source-security-gate` và lưu evidence; cập nhật ruleset khi thêm app/IaC/image checks.
-5. Xác nhận SCA theo TI blacklist hay severity với người giao; nhận rules/exceptions cần thiết nếu yêu cầu tương đương component GitLab nội bộ.
+1. Hoàn tất PR hiện tại, theo dõi required checks và squash merge; khai báo AI trong PR.
+2. Cấu hình Azure OIDC/backend, review Terraform plan rồi mới apply; bổ sung evidence thật M1–M8.
+3. Chỉ bật `AZURE_CD_ENABLED` sau khi staging/rollback và cleanup rules được review; lấy evidence M2/M10.
+4. Thiết lập Google keys/coverage test khi đến integration; không coi demo là dữ liệu thực tế.
+5. Hoàn thiện monitoring/dashboard/alert và xác nhận SCA TI blacklist cùng mâu thuẫn App Insights với người giao.

@@ -2,6 +2,12 @@
 
 This is the canonical agent contract. Read it with `MASTERPLAN_HANOI_TRIP_PLANNER.md` before changes. `AGENTS.md` only points here. The supplied `README (1).md` and `gitlab-ci.yml` are reference requirements, not executable GitHub pipelines.
 
+## Current authorization — complete the repository workflow
+
+The user's latest instruction (25 September 2026) authorizes completing the remaining mandatory parts at a practical first-pass level, applying the topics already learned, and publishing through GitHub feature branch → PR → CI → squash merge to `main`. Active workflows and Terraform may therefore be added. The empty repository bootstrap commit is the documented direct-main exception.
+
+Azure deployment still requires real Azure credentials/resources and must never be represented as complete without evidence. CD may be committed in a disabled-by-default state and enabled only after OIDC, Terraform outputs, repository variables and the protected environment are configured. Keep mandatory WARP enabled and do not modify corporate network/security policy.
+
 ## Scope and boundaries
 
 - Build a Vietnamese, responsive Hanoi public-transit planner inspired by Opal's clarity, not a brand/UI copy. React + TypeScript frontend, Node + TypeScript backend, MySQL, ONE Docker image.
@@ -44,16 +50,16 @@ For scans: create a fresh report directory OUTSIDE the checkout with `mktemp -d`
 
 ## Validation matrix
 
-| Layer | Required checks |
-|---|---|
-| Contracts | Invalid coordinates/time/body -> 400; empty items -> 200; create -> 201; unknown API -> 404; provider timeout/unavailable -> 504/502; no false demo fallback |
-| Product | Place selection, swap A/B, departure selection, alternate cards/map, leg details, save/reopen favorite; loading, empty, error and retry states |
-| Data | Parameterized MySQL create/list; persistence after app restart; read/write failure -> 503; verified TLS in production; migration separate from web startup |
-| Diagnostics | Health 200/503; version SHA; deliberate 500 with request ID; safe load bounds and concurrency; structured logs without secrets |
-| UI | Keyboard and visible focus, labels, accessible feedback; desktop and mobile screenshots; no horizontal overflow; no console errors; route details readable |
-| Container | Multi-stage image; non-root runtime; port 8080; readiness healthcheck; same image serves SPA+API; no secrets copied/baked |
-| CI | Gate policy tests, all four report formats, real PR checks and protected-branch behavior distinguished from local-only results |
-| Azure (later) | M1–M11 evidence from masterplan; real Google coverage checks; no fabricated deploy/swap/alert/identity evidence |
+| Layer         | Required checks                                                                                                                                              |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Contracts     | Invalid coordinates/time/body -> 400; empty items -> 200; create -> 201; unknown API -> 404; provider timeout/unavailable -> 504/502; no false demo fallback |
+| Product       | Place selection, swap A/B, departure selection, alternate cards/map, leg details, save/reopen favorite; loading, empty, error and retry states               |
+| Data          | Parameterized MySQL create/list; persistence after app restart; read/write failure -> 503; verified TLS in production; migration separate from web startup   |
+| Diagnostics   | Health 200/503; version SHA; deliberate 500 with request ID; safe load bounds and concurrency; structured logs without secrets                               |
+| UI            | Keyboard and visible focus, labels, accessible feedback; desktop and mobile screenshots; no horizontal overflow; no console errors; route details readable   |
+| Container     | Multi-stage image; non-root runtime; port 8080; readiness healthcheck; same image serves SPA+API; no secrets copied/baked                                    |
+| CI            | Gate policy tests, all four report formats, real PR checks and protected-branch behavior distinguished from local-only results                               |
+| Azure (later) | M1–M11 evidence from masterplan; real Google coverage checks; no fabricated deploy/swap/alert/identity evidence                                              |
 
 ## Handoff
 

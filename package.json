@@ -1,0 +1,61 @@
+{
+  "name": "hanoitrip",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0 <23"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n api,web 'tsx watch --env-file-if-exists=.env app/server/index.ts' 'vite --host 127.0.0.1'",
+    "build": "vite build && tsc -p tsconfig.server.json",
+    "start": "node --env-file-if-exists=.env dist/server/index.js",
+    "start:local": "node scripts/start-local.mjs",
+    "db:shell": "bash scripts/mysql-shell.sh",
+    "migrate": "tsx --env-file-if-exists=.env app/server/migrate.ts",
+    "format": "prettier --write app tests/app tests/ui 'scripts/*.mjs' package.json '*config.*' index.html compose.yml compose.socket.yml --ignore-unknown",
+    "format:check": "prettier --check app tests/app tests/ui 'scripts/*.mjs' package.json '*config.*' index.html compose.yml compose.socket.yml --ignore-unknown",
+    "lint": "eslint app tests/app tests/ui scripts/*.mjs",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.server.json --noEmit",
+    "test": "vitest run",
+    "test:mysql": "MYSQL_TEST=1 vitest run tests/app/mysql.integration.test.ts",
+    "smoke": "node scripts/smoke.mjs",
+    "test:browser": "node scripts/browser-smoke.mjs",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build"
+  },
+  "dependencies": {
+    "@fastify/helmet": "13.1.1",
+    "@fastify/rate-limit": "11.2.0",
+    "@fastify/static": "10.1.4",
+    "@fontsource/be-vietnam-pro": "5.3.0",
+    "fastify": "5.12.5",
+    "lucide-react": "1.48.0",
+    "maplibre-gl": "6.11.2",
+    "mysql2": "3.24.4",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.7",
+    "@types/google.maps": "3.66.4",
+    "@types/node": "22.20.4",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "concurrently": "10.0.5",
+    "eslint": "10.11.0",
+    "globals": "17.12.0",
+    "jsdom": "30.1.1",
+    "playwright": "1.63.0",
+    "prettier": "3.9.9",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.70.1",
+    "vite": "8.3.0",
+    "vitest": "5.0.1"
+  }
+}

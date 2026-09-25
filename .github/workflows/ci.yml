@@ -1,0 +1,142 @@
+name: App and Terraform CI
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  app-check:
+    name: app-check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: python3 -m unittest discover -s tests/ci -v
+
+  terraform-check:
+    name: terraform-check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: 1.16.4
+      - run: terraform fmt -check -recursive terraform
+      - name: Validate bootstrap
+        run: |
+          terraform -chdir=terraform/bootstrap init -backend=false -input=false
+          terraform -chdir=terraform/bootstrap validate
+      - name: Validate app stack
+        run: |
+          terraform -chdir=terraform/app init -backend=false -input=false
+          terraform -chdir=terraform/app validate
+
+  terraform-plan:
+    name: terraform-plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Report pending cloud configuration
+        if: ${{ vars.AZURE_TERRAFORM_PLAN_ENABLED != 'true' }}
+        run: |
+          echo "## Terraform plan pending" >> "$GITHUB_STEP_SUMMARY"
+          echo "Set AZURE_TERRAFORM_PLAN_ENABLED=true only after the read-scoped OIDC identity and remote backend variables exist." >> "$GITHUB_STEP_SUMMARY"
+          echo "::warning::No Azure plan was produced in this run; fmt/validate still run in terraform-check."
+      - if: ${{ vars.AZURE_TERRAFORM_PLAN_ENABLED == 'true' }}
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - if: ${{ vars.AZURE_TERRAFORM_PLAN_ENABLED == 'true' }}
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: 1.16.4
+      - if: ${{ vars.AZURE_TERRAFORM_PLAN_ENABLED == 'true' }}
+        uses: Azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2
+        with:
+          client-id: ${{ secrets.AZURE_PLAN_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Create reviewable plan
+        if: ${{ vars.AZURE_TERRAFORM_PLAN_ENABLED == 'true' }}
+        env:
+          ARM_CLIENT_ID: ${{ secrets.AZURE_PLAN_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_USE_OIDC: 'true'
+          ARM_USE_AZUREAD: 'true'
+          TF_VAR_allowed_ip_cidrs: ${{ vars.AZURE_ALLOWED_IP_CIDRS_JSON }}
+          TF_VAR_alert_email: ${{ vars.AZURE_ALERT_EMAIL }}
+          TF_VAR_github_actions_principal_object_id: ${{ vars.AZURE_DEPLOY_PRINCIPAL_OBJECT_ID }}
+        run: |
+          terraform -chdir=terraform/app init -input=false \
+            -backend-config="resource_group_name=${{ vars.AZURE_TFSTATE_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ vars.AZURE_TFSTATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ vars.AZURE_TFSTATE_CONTAINER }}" \
+            -backend-config="key=${{ vars.AZURE_TFSTATE_KEY }}" \
+            -backend-config="use_azuread_auth=true"
+          terraform -chdir=terraform/app plan -input=false -out="$RUNNER_TEMP/hanoitrip.tfplan"
+          terraform -chdir=terraform/app show -no-color "$RUNNER_TEMP/hanoitrip.tfplan" > "$RUNNER_TEMP/terraform-plan.txt"
+      - if: ${{ vars.AZURE_TERRAFORM_PLAN_ENABLED == 'true' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: terraform-plan-${{ github.event.pull_request.head.sha }}
+          path: ${{ runner.temp }}/terraform-plan.txt
+          if-no-files-found: error
+          retention-days: 7
+
+  container-check:
+    name: container-check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - name: Build sandbox image and start MySQL
+        env:
+          BUILD_SHA: ${{ github.event.pull_request.head.sha }}
+          DIAGNOSTICS_ENABLED: 'true'
+        run: |
+          node scripts/setup-local.mjs
+          docker compose up --build -d --wait
+      - name: Probe SPA, API, MySQL and diagnostics
+        env:
+          SMOKE_WRITE: '1'
+          SMOKE_DIAGNOSTICS: '1'
+        run: node scripts/smoke.mjs
+      - name: Scan runtime image
+        env:
+          BUILD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:0.74.0@sha256:ee940acbf1f58ebadb42d01434ce4609530bf1b52536afbd1eee66cd7123c5c9 \
+            image --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --ignore-unfixed=false --timeout 10m "hanoitrip:$BUILD_SHA"
+      - name: Clean up ephemeral containers
+        if: ${{ always() }}
+        run: docker compose down

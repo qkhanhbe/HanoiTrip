@@ -1,0 +1,6 @@
+location            = "southeastasia"
+environment         = "dev"
+allowed_ip_cidrs    = ["203.0.113.10/32"] # Replace with your public IP.
+alert_email         = "intern@example.com"
+routes_mode         = "demo"
+# github_actions_principal_object_id = "00000000-0000-0000-0000-000000000000"

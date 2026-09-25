@@ -1,0 +1,5 @@
+resource_group_name  = "rg-hanoitrip-tfstate"
+storage_account_name = "replacewithuniquestateaccount"
+container_name       = "tfstate"
+key                  = "hanoitrip.tfstate"
+use_azuread_auth      = true

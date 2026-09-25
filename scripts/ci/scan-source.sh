@@ -17,6 +17,9 @@ trivy_image='aquasec/trivy:0.74.0@sha256:ee940acbf1f58ebadb42d01434ce4609530bf1b
 semgrep_image='semgrep/semgrep:1.178.0@sha256:fbba1f23d2ef94630c828e8692758f8bc6353a8089841a396a5c041451966ffb'
 container_args=(--rm --platform linux/amd64 --user "$(id -u):$(id -g)"
   --volume "$source_dir:/src:ro" --volume "$report_dir:/reports" --workdir /src)
+# Optional local build/scan networking uses the host's existing WARP policy;
+# it does not disable or modify the corporate network configuration.
+if [ "${SCAN_NETWORK:-}" = host ]; then container_args+=(--network host); fi
 trivy_args=(--cache-dir /tmp/trivy-cache --timeout 10m --skip-version-check
   --skip-dirs /src/.git --skip-dirs /src/node_modules --skip-dirs /src/.venv
   --exit-code 0 --format json)
