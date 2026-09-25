@@ -168,7 +168,7 @@ def summary(result):
     rows.extend(["", "Secrets and HIGH/CRITICAL block. MEDIUM/LOW are nonblocking warnings.",
                  "SCA policy is provisional: HIGH/CRITICAL, pending the internal TI blacklist.",
                  "Counts use canonical JSON only; SBOM/SARIF exports are not counted again.",
-                 "No dependencies or app source yet can legitimately produce empty reports; this does not prove app security."])
+                 "Zero findings from a scanner do not prove the application is secure; review coverage and policy gaps."])
     return "\n".join(rows) + "\n"
 
 

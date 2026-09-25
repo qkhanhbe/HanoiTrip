@@ -11,4 +11,9 @@ __pycache__/
 *.tfstate
 *.tfstate.*
 *.tfplan
+*.tfvars
+backend.hcl
 reports/
+output/
+.playwright-cli/
+.local/

@@ -1,0 +1,152 @@
+name: Azure CD
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: azure-production
+  cancel-in-progress: false
+
+jobs:
+  status:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Report deployment readiness
+        env:
+          ENABLED: ${{ vars.AZURE_CD_ENABLED }}
+        run: |
+          if [ "$ENABLED" = "true" ]; then
+            echo "Azure deployment is enabled." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Azure deploy pending" >> "$GITHUB_STEP_SUMMARY"
+            echo "Set AZURE_CD_ENABLED=true only after Terraform, OIDC secrets and repository variables exist." >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::Build is merge-ready, but no Azure environment has been authorized/configured yet."
+          fi
+
+  deploy:
+    if: ${{ vars.AZURE_CD_ENABLED == 'true' }}
+    needs: status
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    environment: azure-sandbox
+    env:
+      RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      WEBAPP_NAME: ${{ vars.AZURE_WEBAPP_NAME }}
+      ACR_NAME: ${{ vars.AZURE_ACR_NAME }}
+      MYSQL_SERVER: ${{ vars.AZURE_MYSQL_SERVER }}
+      KEY_VAULT_NAME: ${{ vars.AZURE_KEY_VAULT }}
+      IMAGE_REPOSITORY: hanoitrip
+      SLOT_NAME: staging
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - name: Validate required configuration
+        env:
+          CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        run: bash scripts/release/require-cd-config.sh
+      - uses: Azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Build, scan and push immutable image
+        run: |
+          az acr login --name "$ACR_NAME"
+          login_server=$(az acr show --name "$ACR_NAME" --query loginServer -o tsv)
+          image="$login_server/$IMAGE_REPOSITORY:$GITHUB_SHA"
+          echo "IMAGE=$image" >> "$GITHUB_ENV"
+          docker build --build-arg "BUILD_SHA=$GITHUB_SHA" --tag "$image" .
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:0.74.0@sha256:ee940acbf1f58ebadb42d01434ce4609530bf1b52536afbd1eee66cd7123c5c9 \
+            image --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --ignore-unfixed=false --timeout 10m "$image"
+          docker push "$image"
+      - name: Open temporary runner access
+        run: |
+          runner_ip=$(curl --fail --silent --show-error https://api.ipify.org)
+          echo "RUNNER_IP=$runner_ip" >> "$GITHUB_ENV"
+          az keyvault network-rule add --resource-group "$RESOURCE_GROUP" --name "$KEY_VAULT_NAME" \
+            --ip-address "$runner_ip/32" >/dev/null
+          az mysql flexible-server firewall-rule create --resource-group "$RESOURCE_GROUP" --name "$MYSQL_SERVER" \
+            --rule-name github-cd-temporary --start-ip-address "$runner_ip" --end-ip-address "$runner_ip"
+          az webapp config access-restriction add --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
+            --rule-name github-cd-temporary --action Allow --ip-address "$runner_ip/32" --priority 90
+          az webapp config access-restriction add --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
+            --slot "$SLOT_NAME" --rule-name github-cd-temporary --action Allow --ip-address "$runner_ip/32" --priority 90
+      - name: Run additive database migration
+        env:
+          MYSQL_DATABASE: hanoitrip
+          MYSQL_USER: hanoiadmin
+          MYSQL_TLS: 'true'
+          DB_MODE: mysql
+          NODE_ENV: production
+          BUILD_SHA: ${{ github.sha }}
+        run: |
+          npm ci
+          password=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name mysql-admin-password --query value -o tsv)
+          echo "::add-mask::$password"
+          MYSQL_PASSWORD="$password" MYSQL_HOST="$MYSQL_SERVER.mysql.database.azure.com" npm run migrate
+      - name: Deploy and warm staging
+        run: |
+          az webapp config container set --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" --slot "$SLOT_NAME" \
+            --docker-custom-image-name "$IMAGE" --docker-registry-server-url "https://$ACR_NAME.azurecr.io"
+          az webapp config appsettings set --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" --slot "$SLOT_NAME" \
+            --settings "BUILD_SHA=$GITHUB_SHA" >/dev/null
+          az webapp restart --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" --slot "$SLOT_NAME"
+          node scripts/release/poll-version.mjs \
+            --url "https://$WEBAPP_NAME-$SLOT_NAME.azurewebsites.net" --expected "$GITHUB_SHA" \
+            --timeout 240 --output "$RUNNER_TEMP/staging-version.jsonl"
+      - name: Swap while observing production
+        run: |
+          production="https://$WEBAPP_NAME.azurewebsites.net"
+          old_sha=$(curl --fail --silent --show-error "$production/version" | node -pe 'JSON.parse(fs.readFileSync(0)).buildSha')
+          test "$old_sha" != "$GITHUB_SHA"
+          node scripts/release/poll-version.mjs --url "$production" --expected "$GITHUB_SHA" \
+            --timeout 240 --output "$RUNNER_TEMP/production-swap.jsonl" &
+          observer=$!
+          sleep 2
+          if ! az webapp deployment slot swap --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
+            --slot "$SLOT_NAME" --target-slot production; then
+            kill "$observer" 2>/dev/null || true
+            wait "$observer" 2>/dev/null || true
+            exit 1
+          fi
+          if ! wait "$observer"; then
+            echo "Production verification failed; reversing the swap." >&2
+            az webapp deployment slot swap --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
+              --slot "$SLOT_NAME" --target-slot production
+            node scripts/release/poll-version.mjs --url "$production" --expected "$old_sha" \
+              --timeout 240 --output "$RUNNER_TEMP/rollback.jsonl"
+            exit 1
+          fi
+      - name: Preserve release evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-${{ github.sha }}
+          path: ${{ runner.temp }}/*.jsonl
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Always remove temporary runner access
+        if: ${{ always() && env.RUNNER_IP != '' }}
+        run: |
+          az webapp config access-restriction remove --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
+            --rule-name github-cd-temporary || true
+          az webapp config access-restriction remove --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
+            --slot "$SLOT_NAME" --rule-name github-cd-temporary || true
+          az mysql flexible-server firewall-rule delete --resource-group "$RESOURCE_GROUP" --name "$MYSQL_SERVER" \
+            --rule-name github-cd-temporary --yes || true
+          az keyvault network-rule remove --resource-group "$RESOURCE_GROUP" --name "$KEY_VAULT_NAME" \
+            --ip-address "$RUNNER_IP/32" || true

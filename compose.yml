@@ -1,0 +1,75 @@
+name: hanoitrip
+services:
+  app:
+    image: hanoitrip:${BUILD_SHA:-local-dev}
+    build:
+      context: .
+      args:
+        BUILD_SHA: ${BUILD_SHA:-local-dev}
+    environment: &app-env
+      NODE_ENV: development
+      HOST: 0.0.0.0
+      PORT: 8080
+      DB_MODE: mysql
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-hanoitrip}
+      MYSQL_USER: ${MYSQL_USER:-hanoitrip}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Run node scripts/setup-local.mjs first}
+      MYSQL_TLS: 'false'
+      ROUTES_MODE: ${ROUTES_MODE:-demo}
+      GOOGLE_ROUTES_API_KEY: ${GOOGLE_ROUTES_API_KEY:-}
+      GOOGLE_MAPS_BROWSER_KEY: ${GOOGLE_MAPS_BROWSER_KEY:-}
+      DIAGNOSTICS_ENABLED: ${DIAGNOSTICS_ENABLED:-false}
+    ports:
+      - '127.0.0.1:8080:8080'
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    init: true
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 512m
+  migrate:
+    image: hanoitrip:${BUILD_SHA:-local-dev}
+    build:
+      context: .
+      args:
+        BUILD_SHA: ${BUILD_SHA:-local-dev}
+    environment: *app-env
+    command: [dist/server/migrate.js]
+    healthcheck:
+      disable: true
+    depends_on:
+      mysql:
+        condition: service_healthy
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+  mysql:
+    image: mysql:8.4@sha256:0744ee5ef89ce6ccfa13de3e579fe6b9e27f93dd70da9c06d2c908b1b193fb8d
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:${MYSQL_PORT:-3306}:3306'
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-hanoitrip}
+      MYSQL_USER: ${MYSQL_USER:-hanoitrip}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Run node scripts/setup-local.mjs first}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Run node scripts/setup-local.mjs first}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          "MYSQL_PWD=$$MYSQL_PASSWORD mysql --protocol=TCP -h 127.0.0.1 -u $$MYSQL_USER -D $$MYSQL_DATABASE -e 'SELECT 1' >/dev/null 2>&1",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+    mem_limit: 1g
+volumes:
+  mysql-data:

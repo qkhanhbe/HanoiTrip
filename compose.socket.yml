@@ -1,0 +1,6 @@
+# Linux-only local IPC for host development; does not change WARP or IP routes.
+# Use together with compose.yml. Data still lives in the existing named volume.
+services:
+  mysql:
+    volumes:
+      - ./.local/mysql-run:/var/run/mysqld

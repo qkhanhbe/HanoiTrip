@@ -1,6 +1,5 @@
 name: Source scan
 
-# Source scans run on PRs only. The future Azure CD workflow owns push: main.
 on:
   pull_request:
     branches: [main]
@@ -13,10 +12,6 @@ concurrency:
   group: source-scan-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
-defaults:
-  run:
-    shell: bash
-
 jobs:
   gitleaks-scan:
     runs-on: ubuntu-24.04
@@ -27,8 +22,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - run: bash scripts/ci/scan-source.sh gitleaks-scan "$RUNNER_TEMP/hanoitrip-reports"
-      - name: Preserve redacted report even on failure
-        if: ${{ always() }}
+      - if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: source-gitleaks
@@ -44,8 +38,7 @@ jobs:
         with:
           persist-credentials: false
       - run: bash scripts/ci/scan-source.sh trivy-source-sbom "$RUNNER_TEMP/hanoitrip-reports"
-      - name: Preserve SCA report and CycloneDX SBOM
-        if: ${{ always() }}
+      - if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: source-trivy-dependencies
@@ -63,8 +56,7 @@ jobs:
         with:
           persist-credentials: false
       - run: bash scripts/ci/scan-source.sh trivy-misconfig "$RUNNER_TEMP/hanoitrip-reports"
-      - name: Preserve IaC and Dockerfile report
-        if: ${{ always() }}
+      - if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: source-trivy-misconfig
@@ -80,8 +72,7 @@ jobs:
         with:
           persist-credentials: false
       - run: bash scripts/ci/scan-source.sh semgrep-sast "$RUNNER_TEMP/hanoitrip-reports"
-      - name: Preserve SAST JSON and SARIF
-        if: ${{ always() }}
+      - if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: source-semgrep
@@ -106,10 +97,8 @@ jobs:
           pattern: source-*
           path: ${{ runner.temp }}/hanoitrip-reports
           merge-multiple: true
-      - name: Verify severity policy
-        run: python3 -m unittest discover -s tests/ci -v
-      - name: Report findings and enforce policy
-        if: ${{ always() }}
+      - run: python3 -m unittest discover -s tests/ci -v
+      - name: Enforce source policy
         env:
           SCAN_JOB_RESULTS: >-
             {"gitleaks-scan":"${{ needs.gitleaks-scan.result }}",
@@ -117,8 +106,7 @@ jobs:
              "trivy-misconfig":"${{ needs.trivy-misconfig.result }}",
              "semgrep-sast":"${{ needs.semgrep-sast.result }}"}
         run: python3 scripts/ci/security_gate.py --reports "$RUNNER_TEMP/hanoitrip-reports"
-      - name: Preserve gate summary
-        if: ${{ always() }}
+      - if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: security-gate-summary
