@@ -2,7 +2,7 @@
 
 ## Phạm vi
 
-App, container, CI security gate và Terraform static validation được kiểm chứng trên máy local. GitHub Actions/ruleset sẽ có evidence riêng sau PR; không có Azure credential/resource nên không coi local validation là deploy evidence.
+App, container, CI security gate và Terraform static validation được kiểm chứng trên máy local. PR #1 đã xác nhận các workflow GitHub chạy thật và ruleset được bật; chi tiết ở `evidence/M9.md`. Không có Azure credential/resource nên không coi local/GitHub validation là deploy evidence.
 
 ## Kết quả thực tế
 

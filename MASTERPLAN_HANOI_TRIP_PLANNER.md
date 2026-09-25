@@ -12,18 +12,18 @@ Hoàn thiện phần bắt buộc ở mức first-pass chỉnh chu, áp dụng n
 
 Đã có source React/Node, MySQL local, Dockerfile distroless, test, active GitHub workflows, Terraform bootstrap/app và bộ deliverable. Google live/Azure vẫn chưa test vì chưa có credentials/resources; chế độ demo và mọi trạng thái pending phải ghi rõ. Xem README, `docs/LOCAL_VALIDATION.md`, `known-issues.md` và `evidence/`.
 
-| Hạng mục | Quyết định |
-|---|---|
-| Product | **Hanoi Trip Planner**: lập hành trình A → B bằng giao thông công cộng, giao diện gọn lấy cảm hứng từ Opal Travel; không sao chép thương hiệu hoặc UI nguyên bản. |
-| Route engine | **Google Routes API** là nguồn tính route chính. Không dùng LLM trong luồng tìm đường. |
-| Bản đồ | Google Maps JavaScript API để hiển thị marker và route Google. Bản demo local dùng MapLibre + OpenFreeMap, bản đồ thật khu vực Hà Nội; chỉ vẽ tuyến demo nét đứt, không vẽ route Google lên bản đồ này. |
-| Dữ liệu transit phụ | BusMaps chỉ là nguồn bổ sung sau khi kiểm tra API, giới hạn và license. Không reverse-engineer/scrape API nội bộ của VinBus, ứng dụng vé, Grab hay XanhSM. |
-| Cá nhân hoá | Không làm thuật toán ưu tiên route ở v1. Google trả các phương án; UI trình bày rõ thời gian, số lần chuyển tuyến, đi bộ và từng chặng. |
-| Dữ liệu app | MySQL lưu hành trình yêu thích; bảng phục vụ đề vẫn tên/endpoint là `items`. |
-| Hạ tầng | Docker → ACR → Linux App Service + staging slot; MySQL Flexible Server; Key Vault; Log Analytics/Azure Monitor; toàn bộ khai báo bằng Terraform. |
-| Quy trình | Trunk-based: PR → CI; chỉ `main` deploy qua CD → staging slot → smoke test → swap. |
-| Source security CI | GitHub Actions thay GitLab: bốn scan chạy song song trên PR, gate `source-security-gate`; secret và HIGH/CRITICAL chặn, MEDIUM/LOW cảnh báo. Policy SCA tạm thời HIGH/CRITICAL, chờ TI blacklist gốc. |
-| Phạm vi an toàn | Sandbox, dữ liệu giả; không commit secret, không đưa dữ liệu công ty vào repo/AI, không tìm cách vượt kiểm soát SOC. |
+| Hạng mục            | Quyết định                                                                                                                                                                                              |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Product             | **Hanoi Trip Planner**: lập hành trình A → B bằng giao thông công cộng, giao diện gọn lấy cảm hứng từ Opal Travel; không sao chép thương hiệu hoặc UI nguyên bản.                                       |
+| Route engine        | **Google Routes API** là nguồn tính route chính. Không dùng LLM trong luồng tìm đường.                                                                                                                  |
+| Bản đồ              | Google Maps JavaScript API để hiển thị marker và route Google. Bản demo local dùng MapLibre + OpenFreeMap, bản đồ thật khu vực Hà Nội; chỉ vẽ tuyến demo nét đứt, không vẽ route Google lên bản đồ này. |
+| Dữ liệu transit phụ | BusMaps chỉ là nguồn bổ sung sau khi kiểm tra API, giới hạn và license. Không reverse-engineer/scrape API nội bộ của VinBus, ứng dụng vé, Grab hay XanhSM.                                              |
+| Cá nhân hoá         | Không làm thuật toán ưu tiên route ở v1. Google trả các phương án; UI trình bày rõ thời gian, số lần chuyển tuyến, đi bộ và từng chặng.                                                                 |
+| Dữ liệu app         | MySQL lưu hành trình yêu thích; bảng phục vụ đề vẫn tên/endpoint là `items`.                                                                                                                            |
+| Hạ tầng             | Docker → ACR → Linux App Service + staging slot; MySQL Flexible Server; Key Vault; Log Analytics/Azure Monitor; toàn bộ khai báo bằng Terraform.                                                        |
+| Quy trình           | Trunk-based: PR → CI; chỉ `main` deploy qua CD → staging slot → smoke test → swap.                                                                                                                      |
+| Source security CI  | GitHub Actions thay GitLab: bốn scan chạy song song trên PR, gate `source-security-gate`; secret và HIGH/CRITICAL chặn, MEDIUM/LOW cảnh báo. Policy SCA tạm thời HIGH/CRITICAL, chờ TI blacklist gốc.   |
+| Phạm vi an toàn     | Sandbox, dữ liệu giả; không commit secret, không đưa dữ liệu công ty vào repo/AI, không tìm cách vượt kiểm soát SOC.                                                                                    |
 
 ## 2. Product scope
 
@@ -97,19 +97,19 @@ Desktop
 
 ### API bắt buộc của đề
 
-| Endpoint | Hành vi của Hanoi Trip Planner | Mục đích chấm |
-|---|---|---|
-| `GET /health` | Trả health/readiness theo mức đã ghi rõ; dùng warm-up/smoke probe. | Slot warm-up, probe |
-| `GET /version` | Trả `buildSha`, image/version và môi trường không nhạy cảm. | Chứng minh swap A → B |
-| `GET /load?seconds=n` | Đốt CPU có giới hạn an toàn, validate `n`; chỉ dùng test autoscale ngắn. | Autoscale |
-| `GET /items` | Danh sách hành trình yêu thích trong MySQL. | Đọc DB |
-| `POST /items` | Lưu A/B và metadata tối thiểu của hành trình yêu thích. | Ghi DB |
-| `GET /boom` | Ném exception có chủ đích, gắn request ID vào log. | Alert/monitoring |
+| Endpoint              | Hành vi của Hanoi Trip Planner                                           | Mục đích chấm         |
+| --------------------- | ------------------------------------------------------------------------ | --------------------- |
+| `GET /health`         | Trả health/readiness theo mức đã ghi rõ; dùng warm-up/smoke probe.       | Slot warm-up, probe   |
+| `GET /version`        | Trả `buildSha`, image/version và môi trường không nhạy cảm.              | Chứng minh swap A → B |
+| `GET /load?seconds=n` | Đốt CPU có giới hạn an toàn, validate `n`; chỉ dùng test autoscale ngắn. | Autoscale             |
+| `GET /items`          | Danh sách hành trình yêu thích trong MySQL.                              | Đọc DB                |
+| `POST /items`         | Lưu A/B và metadata tối thiểu của hành trình yêu thích.                  | Ghi DB                |
+| `GET /boom`           | Ném exception có chủ đích, gắn request ID vào log.                       | Alert/monitoring      |
 
 ### API product bổ sung
 
-| Endpoint | Hành vi |
-|---|---|
+| Endpoint       | Hành vi                                                                                       |
+| -------------- | --------------------------------------------------------------------------------------------- |
 | `POST /routes` | Backend validate A/B/thời điểm, gọi Google Routes, chuẩn hoá response thành route cards/legs. |
 
 Backend, không phải browser, gọi Google Routes. Điều này giữ server credential ở Key Vault, cho phép rate limit/log/cache và tránh lộ key server.
@@ -204,20 +204,20 @@ Chi tiết triển khai, mapping và giới hạn ở [docs/CI_GITHUB.md](docs/C
 - `.github/workflows/ci.yml`: app lint/test/build, gate tests, Terraform fmt/init/validate và optional OIDC plan artifact, Docker/MySQL smoke + image scan. Source scan không thay thế kiểm tra image/base OS.
 - `.github/workflows/cd.yml`: `push` vào `main` → build một release image SHA → scan → push ACR → staging → smoke → observer → swap → verify/rollback; deploy bị khóa cho tới khi Azure/OIDC sẵn sàng. Quy tắc PR-only của source scan không hủy yêu cầu CD này.
 
-| Job | Yêu cầu được hợp nhất | Artifact |
-|---|---|---|
-| `gitleaks-scan` | Full history: `fetch-depth: 0`, scan `--all`, redact secret; phát hiện secret chưa được chấp nhận ngoại lệ thì block. `.gitleaksignore` chỉ dùng fingerprint false positive đã giải thích trong PR. | `gitleaks.json` |
-| `trivy-source-sbom` | Quét dependency từ lockfile và tạo SBOM CycloneDX. Mọi dependency phải có lockfile khi app được tạo. | `trivy-source.json`, `sbom.cdx.json` |
-| `trivy-misconfig` | Scan Terraform/IaC, Dockerfile và cấu hình được Trivy hỗ trợ. | `trivy-misconfig.json` |
-| `semgrep-sast` | SAST theo ruleset phù hợp JS/TS/React; lưu JSON và SARIF, metrics tắt. Chưa có ruleset nội bộ để bảo đảm kết quả giống component gốc. | `semgrep.json`, `semgrep.sarif` |
-| `source-security-gate` | Luôn tổng hợp sau scanner; kiểm tra trạng thái job, tính đầy đủ report và severity. Đếm JSON chuẩn một lần, không cộng lại cùng finding từ SARIF/SBOM. | Job Summary, `summary.md` |
+| Job                    | Yêu cầu được hợp nhất                                                                                                                                                                               | Artifact                             |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| `gitleaks-scan`        | Full history: `fetch-depth: 0`, scan `--all`, redact secret; phát hiện secret chưa được chấp nhận ngoại lệ thì block. `.gitleaksignore` chỉ dùng fingerprint false positive đã giải thích trong PR. | `gitleaks.json`                      |
+| `trivy-source-sbom`    | Quét dependency từ lockfile và tạo SBOM CycloneDX. Mọi dependency phải có lockfile khi app được tạo.                                                                                                | `trivy-source.json`, `sbom.cdx.json` |
+| `trivy-misconfig`      | Scan Terraform/IaC, Dockerfile và cấu hình được Trivy hỗ trợ.                                                                                                                                       | `trivy-misconfig.json`               |
+| `semgrep-sast`         | SAST theo ruleset phù hợp JS/TS/React; lưu JSON và SARIF, metrics tắt. Chưa có ruleset nội bộ để bảo đảm kết quả giống component gốc.                                                               | `semgrep.json`, `semgrep.sarif`      |
+| `source-security-gate` | Luôn tổng hợp sau scanner; kiểm tra trạng thái job, tính đầy đủ report và severity. Đếm JSON chuẩn một lần, không cộng lại cùng finding từ SARIF/SBOM.                                              | Job Summary, `summary.md`            |
 
-| Kết quả | Hành vi GitHub | Merge |
-|---|---|---|
-| Secret hoặc HIGH/CRITICAL | Required check fail | Chặn |
-| Chỉ MEDIUM/LOW | Check success + warning annotation + bảng Summary | Cho phép |
-| Không có finding | Check success | Cho phép nếu các check khác cũng pass |
-| Job failed/skipped/cancelled, thiếu/hỏng report, severity chưa biết | Check fail | Chặn; xử lý lỗi scan trước |
+| Kết quả                                                             | Hành vi GitHub                                    | Merge                                 |
+| ------------------------------------------------------------------- | ------------------------------------------------- | ------------------------------------- |
+| Secret hoặc HIGH/CRITICAL                                           | Required check fail                               | Chặn                                  |
+| Chỉ MEDIUM/LOW                                                      | Check success + warning annotation + bảng Summary | Cho phép                              |
+| Không có finding                                                    | Check success                                     | Cho phép nếu các check khác cũng pass |
+| Job failed/skipped/cancelled, thiếu/hỏng report, severity chưa biết | Check fail                                        | Chặn; xử lý lỗi scan trước            |
 
 GitHub Actions không dùng trạng thái pipeline màu cam `passed with warnings` giống GitLab; dùng annotation và Summary để thể hiện cảnh báo. Không áp dụng `continue-on-error` cho toàn bộ scanner/gate vì sẽ che lỗi thực thi. Với Semgrep, `ERROR → HIGH`, `WARNING → MEDIUM`, `INFO → LOW` là mapping công khai của bản chuyển, chưa xác nhận tương đương component nội bộ.
 
@@ -229,22 +229,22 @@ Required checks cần cấu hình trong ruleset bảo vệ `main`: bắt buộc 
 
 ### Trạng thái và evidence CI hiện tại
 
-Đã chạy local app/container/source scan/gate tests; workflow active và Terraform đã validate. Chưa có GitHub PR run/ruleset evidence ở thời điểm viết đoạn này; chưa plan/apply Azure. Bảng milestone chỉ đánh dấu đạt khi có evidence thật.
+Đã chạy local app/container/source scan/gate tests; PR #1 đã qua workflow thật và được squash merge qua ruleset `protect-main`. Terraform đã validate nhưng chưa tạo plan/apply Azure; CD mới chứng minh trigger + safety skip, chưa deploy. Bảng milestone chỉ đánh dấu đạt khi có evidence thật.
 
 ## 6. Milestone kỹ thuật
 
-| Must-have | Implementation decision | Evidence phải có |
-|---|---|---|
-| M1 Docker + ACR | Docker image in ACR; admin disabled; App Service MI has `AcrPull`. | Config/role proof + running image. |
-| M2 Zero downtime | Staging slot warm-up, smoke pass then swap; reverse swap rollback. | Raw `/version` poll: 0 non-200, SHA A → B. |
-| M3 MySQL | `items` read/write; firewall chỉ App Service outbound IP; TLS. | `/items` CRUD + firewall proof. |
-| M4 Managed Identity | System-assigned MI for ACR pull and Key Vault access. | Role/scope matrix and proof. |
-| M5 Key Vault | DB credential/server Routes key via KV reference; remove MI permission as negative test. | App breaks/recovery evidence, no plaintext secret. |
-| M6 IP whitelist | Default deny access restriction; allowed IP gets 200, different origin gets 403. | Both real requests. |
-| M8 Terraform | Terraform covers all in-scope infra; remote state/lock/bootstrap documented. | `destroy` → `apply` raw log, no manual infra step. |
-| M9 CI gate | PR-only CI, no deploy; bốn source scan + SBOM/SARIF/summary; severity gate; tests, Terraform checks/plan artifact, Docker build + image scan, ruleset. | Hai PR đỏ bị chặn thật; thêm PR chỉ MEDIUM/LOW pass có warning; artifact đầy đủ, chứng minh scanner lỗi không bị coi là pass. Ghi gap TI policy. |
-| M10 CD | Only `main`: build once → ACR → staging → smoke → swap. | End-to-end GitHub run + artifact SHA. |
-| M11 Monitoring | JSON logs, Log Analytics/KQL, dashboard app+infra, 3 alerts/email; at least one triggered. | Dashboard/query/alert timeline/runbook. |
+| Must-have           | Implementation decision                                                                                                                                | Evidence phải có                                                                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| M1 Docker + ACR     | Docker image in ACR; admin disabled; App Service MI has `AcrPull`.                                                                                     | Config/role proof + running image.                                                                                                               |
+| M2 Zero downtime    | Staging slot warm-up, smoke pass then swap; reverse swap rollback.                                                                                     | Raw `/version` poll: 0 non-200, SHA A → B.                                                                                                       |
+| M3 MySQL            | `items` read/write; firewall chỉ App Service outbound IP; TLS.                                                                                         | `/items` CRUD + firewall proof.                                                                                                                  |
+| M4 Managed Identity | System-assigned MI for ACR pull and Key Vault access.                                                                                                  | Role/scope matrix and proof.                                                                                                                     |
+| M5 Key Vault        | DB credential/server Routes key via KV reference; remove MI permission as negative test.                                                               | App breaks/recovery evidence, no plaintext secret.                                                                                               |
+| M6 IP whitelist     | Default deny access restriction; allowed IP gets 200, different origin gets 403.                                                                       | Both real requests.                                                                                                                              |
+| M8 Terraform        | Terraform covers all in-scope infra; remote state/lock/bootstrap documented.                                                                           | `destroy` → `apply` raw log, no manual infra step.                                                                                               |
+| M9 CI gate          | PR-only CI, no deploy; bốn source scan + SBOM/SARIF/summary; severity gate; tests, Terraform checks/plan artifact, Docker build + image scan, ruleset. | Hai PR đỏ bị chặn thật; thêm PR chỉ MEDIUM/LOW pass có warning; artifact đầy đủ, chứng minh scanner lỗi không bị coi là pass. Ghi gap TI policy. |
+| M10 CD              | Only `main`: build once → ACR → staging → smoke → swap.                                                                                                | End-to-end GitHub run + artifact SHA.                                                                                                            |
+| M11 Monitoring      | JSON logs, Log Analytics/KQL, dashboard app+infra, 3 alerts/email; at least one triggered.                                                             | Dashboard/query/alert timeline/runbook.                                                                                                          |
 
 ## 7. Tiến độ: chương trình cá nhân và lịch của người giao
 
@@ -255,12 +255,12 @@ Required checks cần cấu hình trong ruleset bảo vệ `main`: bắt buộc 
 - Tại **22/09/2026**, cuộc học đang ở **Day 3**. Theo thông tin “ba ngày nữa là D10”, tạm ánh xạ hôm nay là **D7 của người giao** và D10 rơi vào **25/09/2026**. Nếu lịch của người giao khác, dùng ngày của họ làm chuẩn.
 - Tại lần lập lịch 22/09/2026, project chỉ có masterplan. Đến 25/09 đã có app local, CI/CD first-pass, Terraform và deliverable skeleton; GitHub/Azure milestone vẫn phụ thuộc run/evidence thật. Lịch bên dưới là kế hoạch học gốc, không phải ngày hoàn thành thực tế.
 
-| Ngày lịch | Nếu học đủ 3 Day/ngày | Việc phải có để kịp gate thực tế |
-|---|---|---|
-| 22/09 | Day 3–5 | Chốt app/API; app + Docker local, deploy tay Portal rồi CLI và MySQL `items` chạy. Kiểm kê việc D1–D6 của người giao đã làm thật. |
-| 23/09 | Day 6–8 | Repo/CI v1, branch policy, Terraform foundation và remote state/locking. |
-| 24/09 | Day 9–11 | Terraform các resource, review plan qua PR; kiểm tra MI, Key Vault, MySQL và network bằng evidence thật. |
-| 25/09 — D10 của người giao | Day 12–14 **về mặt nội dung học** | Ưu tiên gate: `destroy` → `apply` từ môi trường sạch, app chạy, raw log và giải thích được state/lock/dependency. |
+| Ngày lịch                  | Nếu học đủ 3 Day/ngày             | Việc phải có để kịp gate thực tế                                                                                                  |
+| -------------------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| 22/09                      | Day 3–5                           | Chốt app/API; app + Docker local, deploy tay Portal rồi CLI và MySQL `items` chạy. Kiểm kê việc D1–D6 của người giao đã làm thật. |
+| 23/09                      | Day 6–8                           | Repo/CI v1, branch policy, Terraform foundation và remote state/locking.                                                          |
+| 24/09                      | Day 9–11                          | Terraform các resource, review plan qua PR; kiểm tra MI, Key Vault, MySQL và network bằng evidence thật.                          |
+| 25/09 — D10 của người giao | Day 12–14 **về mặt nội dung học** | Ưu tiên gate: `destroy` → `apply` từ môi trường sạch, app chạy, raw log và giải thích được state/lock/dependency.                 |
 
 **Đánh giá:** Nếu bắt đầu đủ 3 Day từ hôm nay (Day 3 là Day đầu của hôm nay), tới 25/09 sẽ học đến **Day 14**. Nếu hôm nay chỉ hoàn thành Day 3 rồi ngày mai mới bắt đầu nhịp 3 Day/ngày, mốc tương ứng là **Day 12**. Cả hai đều chỉ là phép tính tiến độ bài học, không phải bằng chứng vượt D10. Với trạng thái workspace hiện tại, đường găng rất dày; không đánh dấu gate D10 đạt nếu chưa có rebuild và log thật. Nếu thiếu quyền/quota hoặc không kịp, ghi blocker và báo người giao theo quy tắc gate của đề.
 
@@ -268,37 +268,37 @@ Required checks cần cấu hình trong ruleset bảo vệ `main`: bắt buộc 
 
 Đề gốc quy định **D1–D5 của người giao là AI-OFF cho phần làm**: AI có thể giải thích khái niệm và phản biện kế hoạch; người thực tập tự viết app, Dockerfile và tự thao tác Portal/CLI. Từ **D7 của người giao**, AI được dùng trong phần làm nếu khai báo trong PR. Mọi bước thực tế phải ghi worklog. Quy tắc dùng AI áp dụng theo ngày của người giao, không theo số `Day` vừa học tới.
 
-| Ngày | Việc product | Việc Azure/evidence | Exit criterion |
-|---|---|---|---|
-| Day 1 | Chốt product, scope và data boundaries. | Subscription/RBAC/quota/region; sơ đồ 4 lớp. | Đủ quyền và biết các giới hạn hạ tầng. |
-| Day 2 | Hiểu request từ browser đến app/API/DB. | HTTP, DNS/IP/port, inbound/outbound, 200/403/500. | Giải thích được flow và failure layers. |
-| Day 3 | Xây skeleton UI + API, Google integration được mock nếu chưa có key; `items` local. | Đủ endpoints, test, JSON logs, chạy local. | `/health`, `/version`, `/items`, `/boom` chứng minh được. |
-| Day 4 | Hoàn thiện route cards/map shell với data an toàn. | Docker local; Portal deploy App Service/ACR tay. | Image local + URL Azure chạy. |
-| Day 5 | Nối MySQL thật cho favorites. | Firewall/TLS, deploy lại bằng CLI, teardown. | `/items` đọc/ghi MySQL cloud. |
+| Ngày  | Việc product                                                                        | Việc Azure/evidence                               | Exit criterion                                            |
+| ----- | ----------------------------------------------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------- |
+| Day 1 | Chốt product, scope và data boundaries.                                             | Subscription/RBAC/quota/region; sơ đồ 4 lớp.      | Đủ quyền và biết các giới hạn hạ tầng.                    |
+| Day 2 | Hiểu request từ browser đến app/API/DB.                                             | HTTP, DNS/IP/port, inbound/outbound, 200/403/500. | Giải thích được flow và failure layers.                   |
+| Day 3 | Xây skeleton UI + API, Google integration được mock nếu chưa có key; `items` local. | Đủ endpoints, test, JSON logs, chạy local.        | `/health`, `/version`, `/items`, `/boom` chứng minh được. |
+| Day 4 | Hoàn thiện route cards/map shell với data an toàn.                                  | Docker local; Portal deploy App Service/ACR tay.  | Image local + URL Azure chạy.                             |
+| Day 5 | Nối MySQL thật cho favorites.                                                       | Firewall/TLS, deploy lại bằng CLI, teardown.      | `/items` đọc/ghi MySQL cloud.                             |
 
 **Checkpoint Day 5:** app + Docker + MySQL chưa chạy tay thì sửa chỗ này, không chuyển sang Terraform.
 
 ### Phase B — tái tạo hạ tầng (Day 6–10 của chương trình cá nhân)
 
-| Ngày | Việc chính | Exit criterion |
-|---|---|---|
-| Day 6 | Repo GitHub riêng, ruleset, bật source-scan PR-only (Gitleaks/SCA+SBOM/misconfig/SAST); CI v1 + Terraform checks. | `source-security-gate` là required check; PR đỏ bị chặn; đủ report. File local chưa tính là evidence GitHub. |
-| Day 7 | Terraform foundation và dependency graph. | Plan được review qua PR. |
-| Day 8 | Bootstrap remote state Blob + lock, tách vòng đời state/app. | Giải thích được state, lock, bootstrap. |
-| Day 9 | Terraform App Service, ACR, MySQL, Key Vault, MI/RBAC, network, monitoring foundation. | Plan artifact + bảng identity/role/scope. |
-| Day 10 | Rebuild từ môi trường sạch. | `destroy` → `apply`, app chạy, không thao tác tay. |
+| Ngày   | Việc chính                                                                                                        | Exit criterion                                                                                               |
+| ------ | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Day 6  | Repo GitHub riêng, ruleset, bật source-scan PR-only (Gitleaks/SCA+SBOM/misconfig/SAST); CI v1 + Terraform checks. | `source-security-gate` là required check; PR đỏ bị chặn; đủ report. File local chưa tính là evidence GitHub. |
+| Day 7  | Terraform foundation và dependency graph.                                                                         | Plan được review qua PR.                                                                                     |
+| Day 8  | Bootstrap remote state Blob + lock, tách vòng đời state/app.                                                      | Giải thích được state, lock, bootstrap.                                                                      |
+| Day 9  | Terraform App Service, ACR, MySQL, Key Vault, MI/RBAC, network, monitoring foundation.                            | Plan artifact + bảng identity/role/scope.                                                                    |
+| Day 10 | Rebuild từ môi trường sạch.                                                                                       | `destroy` → `apply`, app chạy, không thao tác tay.                                                           |
 
 **Checkpoint Day 10:** nội dung này trùng yêu cầu gate D10 của người giao, nhưng chỉ được tính đạt khi có rebuild và log thật trước hạn chính thức.
 
 ### Phase C — release và vận hành (Day 11–15 của chương trình cá nhân)
 
-| Ngày | Việc chính | Exit criterion |
-|---|---|---|
-| Day 11 | MI pull ACR, KV references/negative test, MySQL CRUD, IP allowlist, log đầu tiên. | M1, M3–M6 có evidence. |
+| Ngày   | Việc chính                                                                                                                                                                | Exit criterion                                                                                          |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Day 11 | MI pull ACR, KV references/negative test, MySQL CRUD, IP allowlist, log đầu tiên.                                                                                         | M1, M3–M6 có evidence.                                                                                  |
 | Day 12 | CI hoàn chỉnh: unit test route/items, plan artifact, Docker build + image scan; evidence HIGH/CRITICAL chặn, MEDIUM/LOW warning; SCA/SBOM/misconfig/SAST và KQL theo SHA. | M9 có PR đỏ thật + PR warning, đủ artifact và không bỏ qua lỗi scanner; ghi rõ trạng thái TI blacklist. |
-| Day 13 | CD main → image SHA → staging → smoke → swap → rollback thử. | M2/M10 poll log hợp lệ. |
-| Day 14 | Dashboard/log view/KQL, 3 alerts + email, autoscale max 2, load test ngắn. | M11 bản đầu và ít nhất một alert thật. |
-| Day 15 | Freeze feature; rà các tiêu chí đề gốc, README, architecture, runbook, known issues, demo script. | Báo cáo/evidence bản đầu sẵn sàng review. |
+| Day 13 | CD main → image SHA → staging → smoke → swap → rollback thử.                                                                                                              | M2/M10 poll log hợp lệ.                                                                                 |
+| Day 14 | Dashboard/log view/KQL, 3 alerts + email, autoscale max 2, load test ngắn.                                                                                                | M11 bản đầu và ít nhất một alert thật.                                                                  |
+| Day 15 | Freeze feature; rà các tiêu chí đề gốc, README, architecture, runbook, known issues, demo script.                                                                         | Báo cáo/evidence bản đầu sẵn sàng review.                                                               |
 
 ### Phase D — kiểm chứng và nộp (theo D16–D25 của người giao)
 
@@ -352,14 +352,14 @@ HanoiTrip/
 
 ## 10. Rủi ro và guardrails
 
-| Rủi ro | Cách xử lý |
-|---|---|
-| Google transit không tốt cho một route Hà Nội | Test 10 hành trình trước khi phụ thuộc UI; hiển thị nguồn/thời điểm; không hứa realtime. |
-| Chưa có public API từ operator/ticket app | Không scrape/reverse-engineer; để integration ở backlog. |
-| Secret bị lộ | Key Vault/OIDC/secret scan, rotate nếu lộ, không paste vào chat/repo/evidence. |
-| SOC chặn công cụ/test | Không bypass; ghi blocker, dùng môi trường/kịch bản được phép hoặc xin hướng dẫn chính thức. |
-| Scope creep UI/data | Không làm feature mới nếu M1–M11 chưa có evidence thật. |
-| Thiếu component/ruleset/TI blacklist nội bộ | Áp dụng và ghi rõ policy SCA tạm; xác nhận với người giao, không tuyên bố bản GitHub tương đương hoàn toàn. |
+| Rủi ro                                              | Cách xử lý                                                                                                    |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Google transit không tốt cho một route Hà Nội       | Test 10 hành trình trước khi phụ thuộc UI; hiển thị nguồn/thời điểm; không hứa realtime.                      |
+| Chưa có public API từ operator/ticket app           | Không scrape/reverse-engineer; để integration ở backlog.                                                      |
+| Secret bị lộ                                        | Key Vault/OIDC/secret scan, rotate nếu lộ, không paste vào chat/repo/evidence.                                |
+| SOC chặn công cụ/test                               | Không bypass; ghi blocker, dùng môi trường/kịch bản được phép hoặc xin hướng dẫn chính thức.                  |
+| Scope creep UI/data                                 | Không làm feature mới nếu M1–M11 chưa có evidence thật.                                                       |
+| Thiếu component/ruleset/TI blacklist nội bộ         | Áp dụng và ghi rõ policy SCA tạm; xác nhận với người giao, không tuyên bố bản GitHub tương đương hoàn toàn.   |
 | Source scan xanh nhưng thiếu code hoặc thiếu report | Ghi phạm vi thực tế; report thiếu/scanner lỗi làm gate đỏ. Không coi scan project rỗng là app đã đạt bảo mật. |
 
 ## 11. Definition of done
