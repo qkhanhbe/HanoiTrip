@@ -57,4 +57,4 @@ Migration phải additive/backward-compatible vì hai phiên bản dùng chung p
 
 ## Ranh giới hiện tại
 
-Kiến trúc local, Terraform và workflow đã có trong repo. Không có Azure credential/resource trong workspace, nên sơ đồ Azure là kiến trúc mục tiêu, chưa phải bằng chứng deploy. Trạng thái thật nằm trong `evidence/M*.md` và `known-issues.md`.
+Các sơ đồ Azure mô tả thiết kế trong Terraform và workflow của repo; cấu hình Portal thực tế có thể khác. Kết quả kiểm thử và các giới hạn hiện tại được ghi trong [testing](docs/testing.md), [known issues](known-issues.md) và [evidence](evidence/README.md). Trạng thái triển khai cần đối chiếu với log pipeline và tài nguyên thực tế.

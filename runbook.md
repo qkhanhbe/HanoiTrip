@@ -1,4 +1,4 @@
-# Runbook — production HTTP 5xx tăng cao
+# Runbook — xử lý HTTP 5xx tăng cao
 
 ## Triệu chứng và mức độ
 

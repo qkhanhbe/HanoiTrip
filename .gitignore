@@ -1,19 +1,67 @@
+# Dependencies and generated output
 node_modules/
 dist/
 coverage/
 __pycache__/
 *.py[cod]
 .venv/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+/reports/
+/output/
+/test-results/
+/playwright-report/
+/.playwright-cli/
+/.local/
+
+# Local environment and credentials (keep documented examples)
 .env
 .env.*
 !.env.example
+!.env.*.example
+
+# Short-lived credential artifacts produced by the corporate CI component
+/jfrog-auth.env
+/jfrog-npmrc
+/jfrog-docker/
+
+# Terraform local state, plans and private configuration
 .terraform/
 *.tfstate
 *.tfstate.*
 *.tfplan
 *.tfvars
+*.tfvars.json
 backend.hcl
-reports/
-output/
-.playwright-cli/
-.local/
+crash.log
+crash.*.log
+
+# Editor / OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Local agent instructions and assistant state
+AGENTS.md
+AGENT.MD
+AGENT.md
+CLAUDE.md
+.codex/
+.claude/
+
+# Personal learning notes, supplied templates and presentation material
+/MASTERPLAN_HANOI_TRIP_PLANNER.md
+/README (1).md
+/gitlab-ci.yml
+/demo-script.md
+/docs/REQUIREMENTS_AUDIT.md
+/docs/LOCAL_VALIDATION.md
+/docs/UI_DIRECTION.md
+/docs/reference/
+/docs/presentation/

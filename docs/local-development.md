@@ -1,6 +1,6 @@
-# Công cụ local
+# Phát triển local
 
-Docker Engine và Compose đã có trên máy Ubuntu; không cài lại hoặc thay cấu hình daemon. MySQL chạy bằng Docker, không phải service MySQL cài trực tiếp lên Ubuntu. Terraform CLI cài trong `/home/tts/.local/bin/terraform` từ bản phát hành HashiCorp, có kiểm tra chữ ký/checksum.
+Yêu cầu Linux/POSIX shell, Node 22.23.2, npm và Docker Engine với Compose. MySQL chạy bằng Docker. Terraform CLI chỉ cần cho phần hạ tầng; cài từ bản phát hành HashiCorp và kiểm tra chữ ký/checksum. Nếu máy dùng WARP theo chính sách công ty, giữ nguyên cấu hình mạng và dùng phương án socket bên dưới khi cần.
 
 ## MySQL cho HanoiTrip
 

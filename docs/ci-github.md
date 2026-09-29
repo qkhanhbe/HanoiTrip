@@ -1,18 +1,68 @@
 # CI/CD GitHub Actions
 
-Hướng dẫn bổ sung “build Dockerfile validate trong MR” được ánh xạ sang required job `container-check` trên PR: build image trong step riêng, Compose smoke dùng `--no-build`, rồi scan cùng image. Xem [đối chiếu đề gốc](REQUIREMENTS_AUDIT.md) cho các phần đã đạt/chưa đạt và trạng thái template mới.
+## Flow chính từ 29/09/2026
+
+GitHub là nguồn phát hành chính (`origin`); GitLab công ty (`gitlab`) là nơi
+review/scan bổ sung, tuyệt đối không CD Azure cá nhân. npm CI và Docker build
+dùng `https://registry.npmjs.org/` theo lockfile, không phụ thuộc jfrog-auth.
+
+1. Review `git status`, remote và diff; không đưa ghi chú/template nội bộ không
+   được phép chia sẻ sang GitHub. Không stage chung các thay đổi UI chưa review.
+2. Nhánh công việc ngắn hạn từ GitHub main; push nhánh, mở PR vào GitHub main.
+   Nhánh chore/github-ci-flow được tạo từ origin/main trong worktree riêng;
+   chỉ chuyển nội dung đã chọn, không merge lịch sử GitLab không chung tổ tiên.
+3. Nếu cần góp ý, tạo nhánh review từ gitlab/main trong workspace GitLab và chuyển
+   patch nội dung app được phép chia sẻ. Giữ CI nội bộ ở đó; không push nhánh
+   GitHub hiện tại sang GitLab để mở MR khi hai lịch sử chưa chung tổ tiên.
+   Góp ý được áp dụng lại trên PR GitHub và chạy CI lại. Approval/checks là riêng.
+4. GitHub CI: source-security-gate; app-check (npm ci/check + policy tests);
+   terraform-check; container-check (Docker build không push, MySQL/HTTP smoke,
+   Trivy image scan). Terraform plan chỉ có thật sau khi identity/state được cấu hình.
+5. Ruleset main: bắt buộc PR/review và các checks trên, chặn direct/force push.
+   Chứng minh test/secret giả làm đỏ và chặn merge. Không coi job skip là pass.
+6. Squash merge PR GitHub sau review; đó là commit nguồn cho release. Nếu GitLab
+   cũng cần merge MR, review diff/tree; hai squash có thể khác SHA. Không ép
+   đồng bộ bằng force-push. Nhánh mới luôn bắt đầu từ origin/main.
+7. Khi CD đã sẵn sàng: merge main → OIDC Azure → build/scan image SHA → ACR →
+   migration additive → staging/health → quan sát production → swap → kiểm chứng
+   hoặc rollback. PR không deploy. Không swap chỉ để hoàn tất bài khi bản B chưa chốt.
+
+### Khóa CD hiện tại — chưa bật deploy
+
+Để trống hoặc đặt false cả `AZURE_CD_ENABLED` và `AZURE_CD_CONFIG_REVIEWED`.
+Deploy job cần cả hai true và ref main; không phải bằng chứng đã sẵn sàng.
+Workflow CD cũ còn các điểm phải sửa/kiểm chứng trước khi bật:
+
+- Hostname đang ghép cứng, khác hostname Azure có suffix của tài nguyên Portal;
+  cần lấy defaultHostName thực tế cho từng slot.
+- Azure đã báo sitecontainers; script cũ dùng config container set. Phải chọn
+  lệnh đúng cho mode này, không tự chuyển kiểu triển khai.
+- Migration đang dùng hanoiadmin/mysql-admin-password; phải chốt identity,
+  tên secret, TLS CA và quyền DB thực tế (không dùng mật khẩu đã lộ trong chat).
+- Kiểm kê/import hạ tầng Portal vào Terraform; không apply chồng để tạo tài nguyên.
+- Cấu hình OIDC Azure riêng cho GitHub environment azure-sandbox, quyền tối thiểu;
+  giới hạn environment chỉ main và approval nếu tài khoản hỗ trợ. Không chuyển
+  token/credential GitLab công ty sang GitHub.
+- Review cleanup rule IP tạm và rollback; hiện cleanup có các lệnh nuốt lỗi,
+  phải kiểm chứng rule đã gỡ. Chốt ngưỡng image scan: hiện HIGH/CRITICAL chưa
+  tương đương yêu cầu đề gốc “không còn CVE”.
+
+Tài liệu chính thức: [GitHub OIDC với Azure](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-azure).
+Chưa thay đổi quyền/ruleset/environment trên GitHub hoặc Azure trong bước này.
+
+Job `container-check` trên PR build image trong step riêng, Compose smoke dùng `--no-build`, rồi scan cùng image. Xem [kiểm thử](testing.md) và [known issues](../known-issues.md) để phân biệt kết quả local với phần còn cần kiểm chứng.
 
 Workflow hoạt động nằm trong `.github/workflows/`: `source-scan.yml` và `ci.yml` chạy trên PR vào `main`; `cd.yml` chạy sau push `main` nhưng deploy job mặc định bị khóa bằng `AZURE_CD_ENABLED` cho tới khi Azure/OIDC sẵn sàng. Không duy trì thêm một bộ workflow nháp song song để tránh cấu hình lệch nhau.
 
-Tài liệu này giải thích phần CI của [masterplan](../MASTERPLAN_HANOI_TRIP_PLANNER.md), không thay thế masterplan.
+Tài liệu này mô tả các workflow GitHub hiện có. CI trên GitLab công ty được mô tả riêng trong [CI GitLab](ci-gitlab.md).
 
 ## Nguồn và phạm vi
 
-- `README (1).md`: yêu cầu source scan, MR-only, HIGH/CRITICAL chặn, MEDIUM/LOW cảnh báo, tắt upload DD/DT.
-- `gitlab-ci.yml`: include component nội bộ `scan-source@v2.4.0`, job overrides và script severity-check. Chưa có mã nguồn component, TI blacklist hoặc bộ rule bên trong.
-- README GitLab mặc định được lưu ở `reference/gitlab-template-README.md`. Các gợi ý mặc định Kubernetes/AWS không phải thay đổi phạm vi bài Azure.
+- Source scan chạy trên PR, chặn secret/HIGH/CRITICAL, cảnh báo MEDIUM/LOW và không upload DD/DT.
+- Cấu hình GitLab nội bộ giữ tại workspace/remote công ty, không chép sang nhánh
+  GitHub này. Policy GitHub chưa được đối chiếu đầy đủ với ruleset nội bộ.
 
-Bản chuyển đổi dùng [source-scan workflow](../.github/workflows/source-scan.yml), [scan-source.sh](../scripts/ci/scan-source.sh) và [security_gate.py](../scripts/ci/security_gate.py). File `gitlab-ci.yml` được giữ làm nguồn đối chiếu, GitHub không thực thi file này.
+Bản chuyển đổi dùng [source-scan workflow](../.github/workflows/source-scan.yml), [scan-source.sh](../scripts/ci/scan-source.sh) và [security_gate.py](../scripts/ci/security_gate.py). GitHub chỉ thực thi workflow trong `.github/workflows/`.
 
 ## Mapping
 
@@ -43,7 +93,7 @@ GitHub không có trạng thái job màu cam giống GitLab. PR warning vẫn c�
 | Semgrep                | ERROR/HIGH/CRITICAL                                                         | WARNING/MEDIUM, INFO/LOW |
 | Thực thi scanner       | Fail/skip/cancel; report thiếu, JSON sai; scan errors hoặc unknown severity | Chỉ khi scan hoàn tất    |
 
-README nguồn ghi HIGH/CRITICAL chặn chung, còn comment YAML ghi SCA gated by TI blacklist. Vì chưa có blacklist, **không thể cam kết kết quả SCA giống hệ thống nội bộ**. Ngưỡng severity hiện tại là lựa chọn tạm được ghi cả trong Summary, cần người giao xác nhận. Các ruleset Semgrep công khai (`p/owasp-top-ten`, `p/javascript`, `p/typescript`, `p/react`) cũng chưa được đối chiếu với rules/exceptions nội bộ.
+GitHub đang gate SCA theo HIGH/CRITICAL, còn component GitLab ghi SCA gated by TI blacklist. Vì chưa đối chiếu và tích hợp đầy đủ policy nội bộ, **không thể cam kết kết quả SCA giống nhau**. Ngưỡng severity hiện tại được ghi trong Summary. Các ruleset Semgrep công khai (`p/owasp-top-ten`, `p/javascript`, `p/typescript`, `p/react`) cũng chưa được đối chiếu với rules/exceptions nội bộ.
 
 Semgrep dùng `scan` cho toàn bộ source hiện tại, tắt metrics/version check; không gọi dịch vụ scan cloud. Ruleset được tải từ registry nên cần network và có thể thay đổi độc lập với phiên bản engine; artifact giữ `check_id` và engine version để điều tra. Nếu cần tái lập tuyệt đối, đưa snapshot rules đã được review vào repo rồi đổi `--config` sang đường dẫn local.
 

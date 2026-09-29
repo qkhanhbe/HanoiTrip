@@ -25,7 +25,7 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
-      - run: npm ci
+      - run: npm ci --include=dev --engine-strict --registry=https://registry.npmjs.org/ --strict-ssl=true --no-audit --no-fund
       - run: npm run check
       - run: python3 -m unittest discover -s tests/ci -v
 
