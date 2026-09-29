@@ -68,6 +68,16 @@ variable "alert_email" {
   description = "Email receiver for Azure Monitor alerts."
 }
 
+variable "mysql_secret_expiration_date" {
+  type        = string
+  description = "RFC 3339 expiry for the generated MySQL administrator secret; rotate the password before this date."
+
+  validation {
+    condition     = can(formatdate("YYYY-MM-DD'T'hh:mm:ssZ", var.mysql_secret_expiration_date))
+    error_message = "Use an RFC 3339 timestamp such as 2027-12-31T23:59:59Z."
+  }
+}
+
 variable "github_actions_principal_object_id" {
   type        = string
   default     = null
