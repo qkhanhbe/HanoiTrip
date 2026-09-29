@@ -1,94 +1,106 @@
 # HanoiTrip
 
-Web app lập hành trình giao thông công cộng tại Hà Nội: React/TypeScript, Node/TypeScript, MySQL; giao diện gọn lấy cảm hứng từ Opal. Một Docker image phục vụ cả frontend và API.
+Ứng dụng lập hành trình tại Hà Nội với React/TypeScript, Fastify và MySQL. Một Docker image phục vụ cả frontend và API.
 
-Repo hiện có app local, CI/source-security workflow, CD disabled-by-default và Terraform cho Azure. App/CI local đã kiểm chứng; các mốc Azure chỉ được coi là đạt sau khi có resource và evidence thật trong `evidence/`.
+Bản đồ OpenFreeMap/OpenStreetMap là dữ liệu thật; tuyến và thời gian trong chế độ `demo` là minh họa. Favorites hiện dùng chung trong sandbox, chưa có tài khoản cá nhân. Adapter Google Routes/Maps đã có code; cần cấu hình key và kiểm chứng live trước khi sử dụng.
 
-## Chạy trên máy hiện tại (Ubuntu, giữ WARP bật)
+## Chạy local
 
-Máy có Node 18; lệnh dưới dùng Node 22 qua npm, không thay Node hệ thống.
+Yêu cầu Linux/POSIX shell, Node >=22.22.2 <23 (khuyến nghị 22.23.2 theo `.node-version`), npm và Docker Compose. Python 3 dùng cho policy tests; Terraform CLI dùng khi triển khai hạ tầng. Chạy từ thư mục gốc repo:
 
 ```bash
-cd /home/tts/tts/HanoiTrip
 node scripts/setup-local.mjs
-docker compose -f compose.yml -f compose.socket.yml up -d --wait mysql
-npx --yes --package=node@22 --call 'npm ci && npm run build'
-MYSQL_SOCKET_PATH="$PWD/.local/mysql-run/mysqld.sock" npx --yes --package=node@22 --call 'npm run migrate'
-npx --yes --package=node@22 --call 'npm run start:local'
+npm ci --engine-strict
+docker compose up -d --wait mysql
+npm run migrate
+npm run build
+npm start
 ```
 
-Mở **http://127.0.0.1:8080**. `Ctrl+C` dừng app; MySQL vẫn giữ dữ liệu. Nếu container app đang chiếm port 8080, chạy `docker compose stop app` trước.
+Mở `http://127.0.0.1:8080`. Script setup tạo `.env` nếu chưa có; database nằm trong Docker volume và giữ dữ liệu khi restart.
 
-`start:local` tự nhận Unix socket nếu tồn tại: kết nối có mật khẩu giữa hai tiến trình trên cùng máy qua file socket, không tắt/đổi WARP. Máy khác có Node 22 và TCP Docker bình thường có thể dùng `npm ci`, `docker compose up -d --wait mysql`, `npm run migrate`, `npm run build`, `npm start`.
+Nếu TCP từ host tới Docker bị ảnh hưởng bởi WARP, xem cách dùng Unix socket trong [hướng dẫn local](docs/local-development.md). Máy chưa có Node phù hợp có thể chạy các lệnh npm bằng `npx --yes --package=node@22.23.2 --call 'npm run check'`.
 
-Vào MySQL không phải gõ lại mật khẩu local:
+## Cấu hình
+
+Các biến được mô tả trong [.env.example](.env.example); không commit giá trị secret thật.
+
+| Biến | Mục đích |
+| --- | --- |
+| `DB_MODE=mysql` | Lưu favorites bằng MySQL |
+| `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER` | Kết nối database |
+| `MYSQL_PASSWORD` | Mật khẩu app DB; Azure dùng Key Vault reference |
+| `MYSQL_TLS`, `MYSQL_CA_FILE` | TLS và CA tùy chọn; production yêu cầu TLS được xác thực |
+| `MYSQL_SOCKET_PATH` | Unix socket khi chạy local cần thay TCP |
+| `ROUTES_MODE` | `demo` hoặc `google` |
+| `GOOGLE_ROUTES_API_KEY`, `GOOGLE_MAPS_BROWSER_KEY` | Key server và browser riêng khi dùng Google |
+| `BUILD_SHA` | SHA/version bất biến cho production |
+| `DIAGNOSTICS_ENABLED` | Bật endpoint chẩn đoán có giới hạn; mặc định tắt |
+
+## API
+
+| Endpoint | Chức năng |
+| --- | --- |
+| `GET /health` | Readiness: 200 khi truy cập được bảng items, 503 khi DB lỗi |
+| `GET /version` | Build SHA, version và environment |
+| `GET /items` | Liệt kê favorites; hỗ trợ limit/offset |
+| `POST /items` | Lưu tên và tọa độ điểm đi/đến |
+| `POST /routes` | Tìm route demo hoặc gọi Google Routes |
+| `GET /config` | Cấu hình công khai cho frontend |
+| `GET /boom`, `GET /load` | Chẩn đoán có giới hạn; mặc định tắt |
+
+Migration là lệnh riêng. Logs gồm request ID, build SHA, status và duration; không ghi password hay request body.
+
+## Cấu trúc repo
+
+```text
+app/                 Frontend, backend và kiểu dữ liệu dùng chung
+public/              Tài nguyên tĩnh
+tests/               Test ứng dụng, UI và policy CI
+scripts/             Công cụ local, CI và release
+terraform/           Bootstrap remote state và hạ tầng ứng dụng
+docs/                Hướng dẫn kỹ thuật và sơ đồ
+evidence/            Kết quả từng tiêu chí M1–M11 theo đề gốc
+.github/             Workflow và PR template cho GitHub
+Dockerfile           Image frontend + API
+compose*.yml         Môi trường app/MySQL local
+```
+
+Các báo cáo được đề gốc yêu cầu giữ ở root: `architecture.md`, `runbook.md`, `known-issues.md`, `cost-report.md`, `ai-failure-log.md`. Kế hoạch học, hướng dẫn agent, bản template tham khảo và slide chỉ lưu local, được bỏ qua bởi `.gitignore`.
+
+## Kiểm thử và CI
 
 ```bash
-npm run db:shell
+npm run check
+python3 -m unittest discover -s tests/ci -v
 ```
 
-Khi thấy `mysql>`:
+MySQL integration và HTTP/browser smoke chạy riêng; xem [kiểm thử](docs/testing.md). GitHub là nơi chạy application/policy CI, Docker + MySQL smoke, image scan, Terraform checks và CD Azure cá nhân; npm tải từ public registry. GitLab công ty dùng để review/source scan, không deploy; tích hợp image scan GitLab còn chờ nguồn OCI artifact phù hợp. Chưa coi YAML là bằng chứng pipeline đã chạy thành công.
 
-```sql
-SHOW TABLES;
-SELECT id, label, created_at FROM items ORDER BY created_at DESC LIMIT 5;
-exit;
-```
+## Triển khai và dừng môi trường
 
-Chi tiết Docker, tắt/bật DB và network: [LOCAL_SETUP.md](docs/LOCAL_SETUP.md). Không commit hoặc gửi `.env` cho người khác. Không dùng `docker compose down -v` nếu cần giữ dữ liệu.
+Thiết lập state, biến Azure và plan/apply theo [Terraform](terraform/README.md). Xem [CI/CD GitHub](docs/ci-github.md) để cấu hình OIDC và release; deploy mặc định bị khóa bằng `AZURE_CD_ENABLED` cho tới khi cấu hình sẵn sàng. Chỉ branch `main` được deploy App Service.
 
-## Dùng thử
-
-1. Chọn điểm đi/đến từ gợi ý, hoặc nhập `vĩ độ, kinh độ`.
-2. Chọn Đi ngay/Chọn giờ rồi **Tìm hành trình**.
-3. Chọn phương án để đổi route trên map, mở **Chi tiết hành trình**.
-4. **Lưu**, mở tab **Đã lưu** rồi chọn lại để tìm lịch trình mới.
-
-Mặc định dùng **bản đồ Hà Nội thật từ OpenFreeMap/OpenStreetMap**, hiển thị bằng MapLibre, không cần API key. Có kéo, zoom, chọn điểm đi/đến trên map và nút về trung tâm Hà Nội. Bản đồ tải trực tiếp từ `https://tiles.openfreemap.org`; cần Internet và WebGL. Giữ attribution hiển thị trên map; nếu tải lỗi, dùng nút thử lại, không tắt WARP.
-
-**Tuyến và thời gian vẫn là dữ liệu minh họa**, không phải lịch trình để đi thực tế. Đường demo vẽ nét đứt, không bảo đảm bám đường phố. Favorites dùng chung trong sandbox; không có tài khoản cá nhân. Gợi ý địa danh là danh sách giới hạn, không phải Google Places autocomplete. Chọn tọa độ trên bản đồ không tự tra tên địa chỉ.
-
-Adapter Google Routes và Google Maps đã có code; **chưa kiểm chứng live vì chưa cấu hình key**. Khi học đến integration, dùng `ROUTES_MODE=google`, server Routes key và browser Maps key riêng. Google mode không tự đổi sang dữ liệu giả khi provider lỗi. Browser key phải giới hạn domain/API; server key không gửi xuống browser.
-
-## API local
-
-| Endpoint                       | Hành vi                                                 |
-| ------------------------------ | ------------------------------------------------------- |
-| `GET /health`                  | 200 khi DB/bảng items truy cập được, 503 khi DB lỗi     |
-| `GET /version`                 | buildSha, version, environment; không trả secret        |
-| `GET /items?limit=30&offset=0` | Liệt kê favorites; limit tối đa 100                     |
-| `POST /items`                  | Lưu label + điểm đi/đến, server tạo UUID, trả 201       |
-| `POST /routes`                 | Validate A/B/thời gian, chuẩn hóa route provider        |
-| `GET /boom`                    | Ném exception, trả 500 + request ID khi diagnostics bật |
-| `GET /load?seconds=1`          | CPU worker 1–5 giây, một lượt đồng thời, rate limit     |
-| `GET /config`                  | Chế độ route/storage + browser Maps key công khai       |
-
-`/boom` và `/load` mặc định tắt (404). Chỉ bật `DIAGNOSTICS_ENABLED=true` khi học/test local hoặc sandbox được bảo vệ. Dùng app đã build để chạy CPU worker. JSON logs có requestId, buildSha, statusCode, durationMs; không ghi body/password. Migration là lệnh riêng, không tự chạy mỗi lần web server khởi động.
-
-## Kiểm chứng local
+Dừng app host bằng Ctrl+C và dừng môi trường local:
 
 ```bash
-npx --yes --package=node@22 --call 'npm run check'
-MYSQL_TEST=1 MYSQL_SOCKET_PATH="$PWD/.local/mysql-run/mysqld.sock" npx --yes --package=node@22 --call 'node --env-file=.env node_modules/vitest/vitest.mjs run tests/app/mysql.integration.test.ts'
-npx --yes --package=node@22 --call 'npm run smoke'
+docker compose down
 ```
 
-`check` gồm format, lint, typecheck, unit/API/UI tests và build. MySQL integration là opt-in riêng; skipped không tính là pass. Test DB chỉ xóa các hàng do chính nó tạo. `test:browser` kiểm tra desktop/mobile, tải map thật, pan/zoom/chọn điểm; cần Chromium hỗ trợ WebGL, Internet và ghi một favorite minh họa. Unit/UI tests mock phần WebGL, không gọi dịch vụ bản đồ. [Kết quả kiểm chứng](docs/LOCAL_VALIDATION.md).
-
-## GitHub flow và Azure
-
-- Tạo nhánh `feat/`, `fix/` hoặc `chore/`, mở PR vào `main`; PR chạy app tests, Terraform fmt/validate, Docker/MySQL smoke, image scan và bốn source scanner.
-- `source-security-gate` chặn secret, HIGH/CRITICAL, report thiếu/hỏng hoặc scanner lỗi; MEDIUM/LOW tạo warning.
-- Sau squash merge, CD chỉ báo `pending` cho tới khi `AZURE_CD_ENABLED=true` và OIDC/repository variables/environment đã được cấu hình. Không dùng client secret.
-- Terraform tách `bootstrap/` (remote state) và `app/` (workload). Xem [terraform/README.md](terraform/README.md) và [CI_GITHUB.md](docs/CI_GITHUB.md).
-- Teardown workload bằng `terraform -chdir=terraform/app destroy`; chỉ xóa backend sau khi state không còn cần. Không commit state, plan binary, `.env`, `tfvars`, backend config hoặc IP thật.
+Lệnh trên giữ volume MySQL; không thêm `-v` nếu cần giữ dữ liệu. Với hạ tầng do Terraform quản lý, review `terraform -chdir=terraform/app plan -destroy` trước khi chạy `terraform -chdir=terraform/app destroy`. Giữ backend state tới khi không còn workload phụ thuộc. Tài nguyên tạo thủ công trên Portal cần được kiểm kê/import trước khi coi Terraform là nguồn quản lý đầy đủ. Theo quy tắc sandbox, lập kế hoạch dừng tài nguyên sau buổi làm việc, không để chạy qua đêm.
 
 ## Tài liệu
 
-- [Masterplan duy nhất](MASTERPLAN_HANOI_TRIP_PLANNER.md).
-- [AGENT.MD](AGENT.MD): yêu cầu, harness, validation và ranh giới công việc.
-- [Kiến trúc traffic/auth/release](architecture.md) và [sơ đồ Excalidraw](docs/hanoitrip-azure-flow.png).
-- [CI/CD GitHub](docs/CI_GITHUB.md), [runbook](runbook.md), [known issues](known-issues.md) và [evidence index](evidence/README.md).
-- Nguồn GitLab: [README (1)](README%20%281%29.md), [gitlab-ci.yml](gitlab-ci.yml), [README template](docs/reference/gitlab-template-README.md).
+- [Chạy local và MySQL](docs/local-development.md)
+- [Kiến trúc](architecture.md) và [sơ đồ](docs/assets/hanoitrip-azure-flow.png)
+- [CI GitLab](docs/ci-gitlab.md), [CI/CD GitHub](docs/ci-github.md), [kiểm thử](docs/testing.md)
+- [Runbook](runbook.md), [known issues](known-issues.md), [cost report](cost-report.md), [AI failure log](ai-failure-log.md)
+- [Evidence M1–M11](evidence/README.md)
 
-App local hoặc workflow xanh không tự động chứng minh Azure. Google live, ACR/MI/Key Vault, slot swap, Terraform rebuild và monitoring vẫn phải có evidence thật trước khi đánh dấu hoàn thành.
+## Quy trình đóng góp
+
+`main` là nhánh dài hạn duy nhất. Nhánh `feat/`, `fix/`, `chore/` sống tối đa 2 ngày, mọi thay đổi qua MR/PR, yêu cầu CI xanh và squash merge; không push trực tiếp hoặc force-push lên `main`. Mô tả MR nêu vấn đề, thay đổi, kiểm chứng (gồm trường hợp lỗi liên quan) và khai báo phần AI hỗ trợ. Giữ pre-commit Gitleaks; không bypass security gate.
+
+GitHub là nguồn phát hành chính theo đề gốc; GitLab công ty là nơi review/scan bổ sung, không CD. Xem flow hai remote và điều kiện bật deploy trong [CI/CD GitHub](docs/ci-github.md). Không force-push để ép hai lịch sử squash giống nhau.
+
+Chỉ commit source, cấu hình mẫu và tài liệu phục vụ dự án. File mẫu `.env.example`, Terraform `*.example` và lockfile vẫn được theo dõi. `.dockerignore` giới hạn build context vào source và file cần để build image.

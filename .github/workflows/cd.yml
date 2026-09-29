@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: azure-production
@@ -20,17 +19,23 @@ jobs:
       - name: Report deployment readiness
         env:
           ENABLED: ${{ vars.AZURE_CD_ENABLED }}
+          REVIEWED: ${{ vars.AZURE_CD_CONFIG_REVIEWED }}
         run: |
-          if [ "$ENABLED" = "true" ]; then
-            echo "Azure deployment is enabled." >> "$GITHUB_STEP_SUMMARY"
+          if [ "$ENABLED" = "true" ] && [ "$REVIEWED" = "true" ] && [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            echo "Deployment configuration flags permit main deployment; environment protection still applies." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "## Azure deploy pending" >> "$GITHUB_STEP_SUMMARY"
-            echo "Set AZURE_CD_ENABLED=true only after Terraform, OIDC secrets and repository variables exist." >> "$GITHUB_STEP_SUMMARY"
-            echo "::warning::Build is merge-ready, but no Azure environment has been authorized/configured yet."
+            echo "Keep AZURE_CD_ENABLED and AZURE_CD_CONFIG_REVIEWED disabled until scripts match the live resources, OIDC and environment protection are reviewed. Only main may deploy." >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::This run does not authorize deployment or prove release readiness."
           fi
 
   deploy:
-    if: ${{ vars.AZURE_CD_ENABLED == 'true' }}
+    # Manual dispatch must not deploy a feature branch. Keep blocked until the
+    # release script is reviewed against the actual Portal-created Azure setup.
+    if: ${{ github.ref == 'refs/heads/main' && vars.AZURE_CD_ENABLED == 'true' && vars.AZURE_CD_CONFIG_REVIEWED == 'true' }}
+    permissions:
+      contents: read
+      id-token: write
     needs: status
     runs-on: ubuntu-24.04
     timeout-minutes: 35
@@ -94,7 +99,7 @@ jobs:
           NODE_ENV: production
           BUILD_SHA: ${{ github.sha }}
         run: |
-          npm ci
+          npm ci --include=dev --engine-strict --registry=https://registry.npmjs.org/ --strict-ssl=true --no-audit --no-fund
           password=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name mysql-admin-password --query value -o tsv)
           echo "::add-mask::$password"
           MYSQL_PASSWORD="$password" MYSQL_HOST="$MYSQL_SERVER.mysql.database.azure.com" npm run migrate
