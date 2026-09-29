@@ -1,6 +1,7 @@
-location            = "southeastasia"
-environment         = "dev"
-allowed_ip_cidrs    = ["203.0.113.10/32"] # Replace with your public IP.
-alert_email         = "intern@example.com"
-routes_mode         = "demo"
+location                     = "southeastasia"
+environment                  = "dev"
+allowed_ip_cidrs             = ["203.0.113.10/32"] # Replace with your public IP.
+alert_email                  = "intern@example.com"
+routes_mode                  = "demo"
+mysql_secret_expiration_date = "2027-12-31T23:59:59Z" # Rotate the generated password before this date.
 # github_actions_principal_object_id = "00000000-0000-0000-0000-000000000000"

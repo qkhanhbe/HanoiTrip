@@ -98,12 +98,23 @@ resource "azurerm_key_vault" "app" {
   }
 }
 
+# Expiry is a required, RFC 3339-validated deployment input. Trivy cannot resolve
+# required Terraform variables during its configuration-only scan.
+#trivy:ignore:AVD-AZU-0017:exp:2027-03-31
 resource "azurerm_key_vault_secret" "mysql_password" {
-  name         = "mysql-admin-password"
-  value        = random_password.mysql_admin.result
-  key_vault_id = azurerm_key_vault.app.id
+  name            = "mysql-admin-password"
+  value           = random_password.mysql_admin.result
+  key_vault_id    = azurerm_key_vault.app.id
+  content_type    = "password"
+  expiration_date = var.mysql_secret_expiration_date
 }
 
+# The internship requires a public MySQL endpoint restricted to App Service
+# outbound IPs (M3), so private-only networking is intentionally out of scope.
+# Flexible Server enforces TLS through server parameters rather than attributes
+# understood by this legacy Trivy rule; the explicit configurations below are
+# the compensating controls. Reassess both exceptions before 31 March 2027.
+#trivy:ignore:AVD-AZU-0022:exp:2027-03-31 trivy:ignore:AVD-AZU-0026:exp:2027-03-31
 resource "azurerm_mysql_flexible_server" "db" {
   name                         = "mysql-${var.project_name}-${local.suffix}"
   resource_group_name          = azurerm_resource_group.app.name
@@ -118,6 +129,20 @@ resource "azurerm_mysql_flexible_server" "db" {
   tags                         = var.tags
 }
 
+resource "azurerm_mysql_flexible_server_configuration" "secure_transport" {
+  name                = "require_secure_transport"
+  resource_group_name = azurerm_resource_group.app.name
+  server_name         = azurerm_mysql_flexible_server.db.name
+  value               = "ON"
+}
+
+resource "azurerm_mysql_flexible_server_configuration" "tls_version" {
+  name                = "tls_version"
+  resource_group_name = azurerm_resource_group.app.name
+  server_name         = azurerm_mysql_flexible_server.db.name
+  value               = "TLSv1.2"
+}
+
 resource "azurerm_mysql_flexible_database" "app" {
   name                = "hanoitrip"
   resource_group_name = azurerm_resource_group.app.name
@@ -126,6 +151,10 @@ resource "azurerm_mysql_flexible_database" "app" {
   collation           = "utf8mb4_unicode_ci"
 }
 
+# This anonymous planner is protected by the required default-deny IP allowlist.
+# Requiring App Service Easy Auth or a client certificate would break the M6 curl
+# evidence and browser access. Reassess if user accounts enter scope.
+#trivy:ignore:AVD-AZU-0001:exp:2027-03-31 trivy:ignore:AVD-AZU-0003:exp:2027-03-31
 resource "azurerm_linux_web_app" "app" {
   name                = "app-${var.project_name}-${local.suffix}"
   resource_group_name = azurerm_resource_group.app.name
