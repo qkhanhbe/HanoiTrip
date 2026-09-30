@@ -60,11 +60,14 @@ const upstream = async (input) => {
           distance: 28_420,
           time: motorcycle ? 2_460_000 : 2_880_000,
           points_encoded: false,
-          points: [
-            [originLat, originLng],
-            [(originLat + destinationLat) / 2 + 0.01, (originLng + destinationLng) / 2],
-            [destinationLat, destinationLng],
-          ],
+          points: {
+            type: 'LineString',
+            coordinates: [
+              [originLng, originLat],
+              [(originLng + destinationLng) / 2, (originLat + destinationLat) / 2 + 0.01],
+              [destinationLng, destinationLat],
+            ],
+          },
           instructions: [
             {
               distance: 28_420,

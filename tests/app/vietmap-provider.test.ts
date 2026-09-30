@@ -6,7 +6,7 @@ const apiKey = 'fixture-key-not-a-secret';
 const now = () => Date.parse('2026-09-30T03:00:00Z');
 const autocomplete = [
   {
-    ref_id: 'auto:valid_reference',
+    ref_id: 'vm:valid_reference',
     display: 'Văn Miếu - Quốc Tử Giám, Hà Nội',
     address: 'Đống Đa, Hà Nội',
     distance: 1.234,
@@ -24,10 +24,13 @@ const route = {
       distance: 5321.7,
       time: 901234,
       points_encoded: false,
-      points: [
-        [21.0285, 105.8542],
-        [21.0277, 105.8355],
-      ],
+      points: {
+        type: 'LineString',
+        coordinates: [
+          [105.8542, 21.0285],
+          [105.8355, 21.0277],
+        ],
+      },
       instructions: [
         {
           distance: 5321.7,
@@ -55,7 +58,7 @@ describe('VIETMAP adapters', () => {
       address: autocomplete[0].address,
       distanceMeters: 1234,
     });
-    expect(search.suggestions[0].token).not.toContain('auto:valid_reference');
+    expect(search.suggestions[0].token).not.toContain('vm:valid_reference');
     expect(JSON.stringify(search)).not.toContain(apiKey);
 
     const resolved = await provider.resolve(search.suggestions[0].token);
@@ -70,10 +73,10 @@ describe('VIETMAP adapters', () => {
     expect(searchUrl.searchParams.get('display_type')).toBe('5');
     const placeUrl = new URL(String(request.mock.calls[1][0]));
     expect(placeUrl.pathname).toBe('/api/place/v4');
-    expect(placeUrl.searchParams.get('refid')).toBe('auto:valid_reference');
+    expect(placeUrl.searchParams.get('refid')).toBe('vm:valid_reference');
   });
 
-  it('normalizes car geometry from provider lat,lng to GeoJSON lon,lat', async () => {
+  it('keeps provider GeoJSON car geometry in canonical longitude,latitude order', async () => {
     const request = vi.fn<typeof fetch>().mockResolvedValue(Response.json(route));
     const { roadRoutes } = vietmapProviders(apiKey, request, now);
     const response = await roadRoutes({

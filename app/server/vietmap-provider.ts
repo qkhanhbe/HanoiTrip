@@ -23,9 +23,9 @@ const placeResponse = z.object({
   lat: z.number().finite(),
   lng: z.number().finite(),
 });
-const coordinate = z.tuple([
-  z.number().finite().min(-90).max(90),
+const geoJsonCoordinate = z.tuple([
   z.number().finite().min(-180).max(180),
+  z.number().finite().min(-90).max(90),
 ]);
 const routeResponse = z.object({
   code: z.string(),
@@ -35,7 +35,10 @@ const routeResponse = z.object({
         distance: z.number().nonnegative(),
         time: z.number().int().nonnegative(),
         points_encoded: z.literal(false),
-        points: z.array(coordinate).min(2),
+        points: z.object({
+          type: z.literal('LineString'),
+          coordinates: z.array(geoJsonCoordinate).min(2),
+        }),
         instructions: z
           .array(
             z.object({
@@ -101,7 +104,11 @@ function tokenSigner(secret: string, now: () => number) {
         throw new AppError(400, 'INVALID_PLACE_TOKEN', 'Gợi ý địa điểm đã hết hạn. Hãy tìm lại.');
       try {
         const refId = Buffer.from(parts[1], 'base64url').toString('utf8');
-        if (!/^(auto|geocode):[A-Za-z0-9_-]+$/.test(refId)) throw new Error('invalid');
+        // VIETMAP ref_id is opaque and currently uses multiple prefixes (for
+        // example auto: and vm:). Integrity comes from the HMAC above; this
+        // allowlist only rejects malformed/control data before URLSearchParams
+        // sends the signed value back to the Place API.
+        if (!/^[A-Za-z0-9:_-]{1,2048}$/.test(refId)) throw new Error('invalid');
         return refId;
       } catch {
         throw new AppError(400, 'INVALID_PLACE_TOKEN', 'Gợi ý địa điểm không còn hợp lệ.');
@@ -223,7 +230,7 @@ export function vietmapProviders(
             distanceMeters: Math.round(path.distance),
             geometry: {
               type: 'LineString',
-              coordinates: path.points.map(([latitude, longitude]) => [longitude, latitude]),
+              coordinates: path.points.coordinates,
             },
             steps: path.instructions.map((step) => ({
               instruction: step.text || step.street_name || 'Tiếp tục theo tuyến',

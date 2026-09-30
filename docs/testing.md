@@ -68,6 +68,17 @@ kiểm tra distance, duration và LineString có geometry. GitHub CD chỉ chạ
 khi `AZURE_RELEASE_REQUIRE_ROAD_PROVIDER=true`; production swap còn có cờ độc lập
 `AZURE_PRODUCTION_SWAP_ENABLED`.
 
+Browser gate provider thật dùng đúng 6 request (2 search, 2 resolve, 2 route), xác
+nhận UI desktop/mobile, attribution và cả hai mode. Nó bắt buộc build SHA để tránh
+kiểm tra nhầm release:
+
+```bash
+BASE_URL=https://<staging-host> \
+EXPECTED_SHA=<git-sha> \
+LIVE_ROAD_CONFIRM=6 \
+npm run test:browser:road:live
+```
+
 Trước khi đưa PR release B về trạng thái ready, chạy benchmark có giới hạn trên
 staging. Lệnh này thực hiện đúng 40 provider request: search + resolve 10 địa danh,
 sau đó kiểm tra 10 cặp A–B cho cả `car` và `motorcycle`. Delay mặc định 4,1 giây
@@ -78,7 +89,7 @@ mkdir -p output
 BASE_URL=https://<staging-host> \
 EXPECTED_SHA=<git-sha> \
 ROAD_BENCHMARK_CONFIRM=40 \
-npm run benchmark:road > output/road-benchmark.json
+npm run --silent benchmark:road > output/road-benchmark.json
 ```
 
 File trong `output/` chỉ là evidence local đang bị Git ignore. Review latency,
@@ -88,14 +99,16 @@ cần thiết vào evidence được track. Script không nhận hoặc in API k
 ## Kết quả gần nhất
 
 30/09/2026, nhánh `feat/real-hanoi-routing`, Node 22.23.2: `npm run check`
-pass (40 tests thường, 1 MySQL integration skip trong suite mặc định), 17 policy
-tests pass và MySQL integration opt-in pass. Browser thật xác nhận trạng thái
-provider-disabled, transit demo, MapLibre và build/provider metadata; không có console
-error. Image distroless build thành công bằng `docker build --network=host`, container
-user `65532:65532` pass HTTP/MySQL write smoke qua socket. Một row smoke do lượt test
-tạo đã được xóa. Trivy local và GitHub `container-check` đều pass với 0
-HIGH/CRITICAL sau exception có hạn đã ghi nhận. VIETMAP live test và staging release
-chưa chạy vì chưa có dev key/provider quota evidence.
+pass (40 tests thường, 1 MySQL integration skip trong suite mặc định), 20 policy
+tests pass và MySQL integration opt-in pass. Browser contract và browser provider
+thật đều pass search → signed resolve → car/motorcycle route, attribution và
+desktop/mobile. Local live smoke pass; benchmark giới hạn pass 10 địa danh, 20 route
+và đúng 40 provider request (search p95 886,36 ms; route p95 770,82 ms; geometry
+70–335 điểm). Evidence local nằm trong `output/` bị Git ignore; chưa thay thế gate
+staging. Image distroless build thành công bằng `docker build --network=host`,
+container user `65532:65532` pass HTTP/MySQL write smoke qua socket. Một row smoke do
+lượt test tạo đã được xóa. Trivy local và GitHub `container-check` đều pass với 0
+HIGH/CRITICAL sau exception có hạn đã ghi nhận. Staging release/swap chưa chạy.
 
 29/09/2026, worktree GitHub riêng trên nhánh `chore/github-ci-flow`, Node 22.23.2:
 `npm ci` qua public registry cài 329 package; `npm run check` pass (29 tests,
