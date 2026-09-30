@@ -48,6 +48,17 @@ thế benchmark staging; GitHub PR chạy test này trong job `browser-road-chec
 Khi staging đã cấu hình `ROAD_PROVIDER=vietmap`, chạy gate provider thật mà không
 truyền API key ra runner/browser:
 
+Nhập key Search/Place/Route một lần bằng prompt ẩn; lệnh dùng file tạm quyền hạn
+chế nên key không nằm trong shell history hoặc tham số tiến trình. Nó chỉ cập nhật
+`.env` bị Git ignore và secret `vietmap-api-key`, không bật provider hoặc restart app:
+
+```bash
+bash scripts/release/configure-vietmap-key.sh <key-vault-name>
+```
+
+Sau khi xác nhận secret/reference và quota, mới cấu hình riêng staging với
+`ROAD_PROVIDER=vietmap`, rồi chạy gate:
+
 ```bash
 BASE_URL=https://<staging-host> EXPECTED_SHA=<git-sha> SMOKE_ROAD=1 npm run smoke
 ```
