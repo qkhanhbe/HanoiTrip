@@ -188,9 +188,13 @@ class ReleasePolicyTests(unittest.TestCase):
 
     def test_storage_queue_logging_remains_visible_to_company_policy(self):
         bootstrap = (ROOT / "terraform/bootstrap/main.tf").read_text(encoding="utf-8")
+        variables = (ROOT / "terraform/bootstrap/variables.tf").read_text(
+            encoding="utf-8"
+        )
         self.assertIn("queue_properties {", bootstrap)
         self.assertIn("retention_policy_days = 7", bootstrap)
         self.assertIn('trimsuffix(cidr, "/32")', bootstrap)
+        self.assertIn('default     = "eastasia"', variables)
         self.assertNotIn(
             'resource "azurerm_storage_account_queue_properties"', bootstrap
         )
