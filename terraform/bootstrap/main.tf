@@ -25,7 +25,11 @@ resource "azurerm_storage_account" "state" {
   network_rules {
     default_action = "Deny"
     bypass         = ["Logging", "Metrics", "AzureServices"]
-    ip_rules       = var.allowed_ip_cidrs
+    # Storage accepts a single host as a bare IPv4 address, not CIDR /32.
+    # Keep wider CIDRs unchanged and normalize only exact-host entries.
+    ip_rules = [
+      for cidr in var.allowed_ip_cidrs : trimsuffix(cidr, "/32")
+    ]
   }
 
   queue_properties {

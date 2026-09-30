@@ -190,6 +190,7 @@ class ReleasePolicyTests(unittest.TestCase):
         bootstrap = (ROOT / "terraform/bootstrap/main.tf").read_text(encoding="utf-8")
         self.assertIn("queue_properties {", bootstrap)
         self.assertIn("retention_policy_days = 7", bootstrap)
+        self.assertIn('trimsuffix(cidr, "/32")', bootstrap)
         self.assertNotIn(
             'resource "azurerm_storage_account_queue_properties"', bootstrap
         )
