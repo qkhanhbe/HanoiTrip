@@ -116,6 +116,11 @@ try {
   const pageErrors = [];
   page.on('pageerror', (error) => pageErrors.push(error.message));
   await page.goto(baseUrl);
+  await page.locator('.open-map[data-map-ready="true"]').waitFor({ timeout: 45000 });
+  assert.equal(
+    await page.locator('.open-map').getAttribute('data-map-style'),
+    'hanoi-transit-bright',
+  );
 
   const car = page.getByRole('button', { name: 'Ô tô', exact: true });
   await car.waitFor();
@@ -168,12 +173,14 @@ try {
   assert.equal(await attribution.getAttribute('href'), 'https://vietmap.vn/');
   await page.getByRole('button', { name: 'Chỉ dẫn cơ bản' }).click();
   await page.getByText('Võ Nguyên Giáp', { exact: true }).waitFor();
+  await page.waitForLoadState('networkidle');
   await page.screenshot({ path: 'output/playwright/road-route-desktop.png', fullPage: true });
 
   await page.getByRole('button', { name: 'Xe máy', exact: true }).click();
   await page.getByText('Route thật từ VIETMAP · xe máy').waitFor();
   await page.getByRole('button', { name: 'Tìm hành trình', exact: true }).click();
   await page.getByRole('article', { name: 'Phương án đường bộ 1' }).waitFor();
+  await page.waitForLoadState('networkidle');
   await page.setViewportSize({ width: 390, height: 844 });
   assert.ok(
     await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),

@@ -769,7 +769,7 @@ p {
 .map-section {
   position: relative;
   overflow: hidden;
-  background: #bfd4d4;
+  background: #edf2ef;
 }
 .map-canvas {
   position: absolute;
@@ -786,11 +786,11 @@ p {
   right: 14px;
 }
 .open-map .maplibregl-ctrl-group {
-  border: 1px solid #b8cac2;
+  border: 1px solid #c5d0cc;
   border-radius: 10px;
-  box-shadow: 0 5px 18px #183e391a;
+  box-shadow: 0 6px 20px #183e3917;
   overflow: hidden;
-  background: #f8faf5;
+  background: #fbfcfa;
 }
 .open-map .maplibregl-ctrl-group button {
   width: 40px;
@@ -801,7 +801,8 @@ p {
   font-size: 10px;
   line-height: 1.6;
   padding: 4px 8px;
-  background: #f6f9f2ed;
+  color: #4e5d59;
+  background: #fbfcfaf0;
   white-space: normal;
   overflow-wrap: anywhere;
   max-width: 100%;
@@ -843,10 +844,10 @@ p {
   right: 24px;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--line);
+  border: 1px solid #c5d0cc;
   border-radius: 10px;
-  background: #f8faf5;
-  box-shadow: 0 5px 18px #183e391a;
+  background: #fbfcfa;
+  box-shadow: 0 6px 20px #183e3917;
   overflow: hidden;
 }
 .open-map-actions button {
@@ -859,7 +860,7 @@ p {
   border-top: 1px solid var(--line);
 }
 .open-map-actions button:hover:not(:disabled) {
-  background: #edf3ee;
+  background: #e8efeb;
 }
 .open-map-crosshair {
   position: absolute;
@@ -868,7 +869,7 @@ p {
   width: 10px;
   height: 10px;
   transform: translate(-50%, -50%);
-  border: 1px solid #43685e;
+  border: 1px solid #526a64;
   border-radius: 50%;
   background: #ffffff80;
   pointer-events: none;
@@ -880,13 +881,15 @@ p {
   max-width: calc(100% - 100px);
   padding: 7px 10px;
   border-radius: 6px;
-  background: #fff8e8f2;
-  color: #38574e;
+  border: 1px solid #cad4d0;
+  background: #fbfcfaf2;
+  color: #53635f;
   font-size: 10px;
   line-height: 1.5;
   pointer-events: none;
 }
 .open-map-demo-label.real-route-label {
+  border-color: transparent;
   color: #f7faf5;
   background: #103f38ec;
   pointer-events: auto;

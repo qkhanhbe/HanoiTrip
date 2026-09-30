@@ -19,6 +19,10 @@ try {
   await page.goto(process.env.BASE_URL ?? 'http://127.0.0.1:8080');
   await page.getByText('Chế độ trải nghiệm · Dữ liệu minh họa').waitFor();
   await page.locator('.open-map[data-map-ready="true"]').waitFor({ timeout: 45000 });
+  assert.equal(
+    await page.locator('.open-map').getAttribute('data-map-style'),
+    'hanoi-transit-bright',
+  );
   await page.getByRole('link', { name: 'OpenStreetMap', exact: true }).waitFor();
   await page.waitForLoadState('networkidle');
   await page.screenshot({ path: `${output}/desktop-initial.png`, fullPage: true });
