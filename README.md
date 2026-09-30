@@ -1,12 +1,30 @@
 # HanoiTrip
 
-Ứng dụng lập hành trình tại Hà Nội với React/TypeScript, Fastify và MySQL. Một Docker image phục vụ cả frontend và API.
+HanoiTrip là ứng dụng web lập hành trình dành cho Hà Nội. Người dùng có thể tìm địa điểm, chọn điểm đi và điểm đến trực tiếp trên bản đồ, so sánh các phương án di chuyển và lưu lại hành trình thường dùng.
 
-Bản đồ OpenFreeMap/OpenStreetMap là dữ liệu thật; tuyến và thời gian trong chế độ `demo` là minh họa. Favorites hiện dùng chung trong sandbox, chưa có tài khoản cá nhân. Adapter Google transit và VIETMAP Search/Place/Road đã có code; mỗi adapter chỉ được coi là live sau khi có key server-side và kiểm chứng provider thật.
+## Trải nghiệm hiện tại
 
-## Chạy local
+- Tìm kiếm và chuẩn hóa địa điểm trong khu vực Hà Nội.
+- Chỉ đường thực tế cho ô tô và xe máy, kèm thời gian, quãng đường và đường đi trên bản đồ.
+- Hiển thị nhiều phương án để người dùng so sánh.
+- Chọn điểm đi hoặc điểm đến trực tiếp trên bản đồ.
+- Lưu và xem lại các hành trình yêu thích.
+- Giao diện responsive, hỗ trợ thao tác bằng bàn phím và thông báo lỗi rõ ràng.
 
-Yêu cầu Linux/POSIX shell, Node >=22.22.2 <23 (khuyến nghị 22.23.2 theo `.node-version`), npm và Docker Compose. Python 3 dùng cho policy tests; Terraform CLI dùng khi triển khai hạ tầng. Chạy từ thư mục gốc repo:
+Chỉ đường giao thông công cộng hiện chưa phải tính năng chính thức. Khi chưa cấu hình nhà cung cấp dữ liệu thật, ứng dụng có thể chạy với dữ liệu minh họa để phát triển và kiểm thử giao diện.
+
+## Công nghệ
+
+- React, TypeScript và Vite cho giao diện.
+- MapLibre GL cùng bản đồ nền OpenFreeMap/OpenStreetMap.
+- Fastify cho API.
+- MySQL cho dữ liệu hành trình đã lưu.
+- VIETMAP cho tìm kiếm địa điểm và chỉ đường bộ khi được cấu hình.
+- Vitest và Playwright cho kiểm thử.
+
+## Chạy trên máy cá nhân
+
+Yêu cầu Node.js `>=22.22.2 <23`, npm và Docker Compose. Từ thư mục gốc của dự án:
 
 ```bash
 node scripts/setup-local.mjs
@@ -17,95 +35,108 @@ npm run build
 npm start
 ```
 
-Mở `http://127.0.0.1:8080`. Script setup tạo `.env` nếu chưa có; database nằm trong Docker volume và giữ dữ liệu khi restart.
+Mở `http://127.0.0.1:8080`. Script thiết lập sẽ tạo `.env` từ cấu hình mẫu nếu file này chưa tồn tại. Dữ liệu MySQL được giữ trong Docker volume sau khi container dừng.
 
-Nếu TCP từ host tới Docker bị ảnh hưởng bởi WARP, xem cách dùng Unix socket trong [hướng dẫn local](docs/local-development.md). Máy chưa có Node phù hợp có thể chạy các lệnh npm bằng `npx --yes --package=node@22.23.2 --call 'npm run check'`.
-
-## Cấu hình
-
-Các biến được mô tả trong [.env.example](.env.example); không commit giá trị secret thật.
-
-| Biến | Mục đích |
-| --- | --- |
-| `DB_MODE=mysql` | Lưu favorites bằng MySQL |
-| `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER` | Kết nối database |
-| `MYSQL_PASSWORD` | Mật khẩu app DB; Azure dùng Key Vault reference |
-| `MYSQL_TLS`, `MYSQL_CA_FILE` | TLS và CA tùy chọn; production yêu cầu TLS được xác thực |
-| `MYSQL_SOCKET_PATH` | Unix socket khi chạy local cần thay TCP |
-| `ROUTES_MODE` | `demo` hoặc `google` |
-| `GOOGLE_ROUTES_API_KEY`, `GOOGLE_MAPS_BROWSER_KEY` | Key server và browser riêng khi dùng Google |
-| `ROAD_PROVIDER` | `disabled` hoặc `vietmap`; mặc định tắt |
-| `VIETMAP_API_KEY` | Key Search/Place/Route v4 chỉ ở server/Key Vault, không trả cho browser |
-| `BUILD_SHA` | SHA/version bất biến cho production |
-| `DIAGNOSTICS_ENABLED` | Bật endpoint chẩn đoán có giới hạn; mặc định tắt |
-
-## API
-
-| Endpoint | Chức năng |
-| --- | --- |
-| `GET /health` | Readiness: 200 khi truy cập được bảng items, 503 khi DB lỗi |
-| `GET /version` | Build SHA, version và environment |
-| `GET /items` | Liệt kê favorites; hỗ trợ limit/offset |
-| `POST /items` | Lưu tên và tọa độ điểm đi/đến |
-| `POST /routes` | Tìm route demo hoặc gọi Google Routes |
-| `GET /v1/search` | Gợi ý địa điểm; trả token ký ngắn hạn thay cho provider ref thô |
-| `POST /v1/places/resolve` | Đổi token đã chọn thành địa điểm canonical trong service area |
-| `POST /v1/routes/road` | Route thật `car`/`motorcycle`, geometry GeoJSON `[lon, lat]` |
-| `GET /config` | Cấu hình công khai cho frontend |
-| `GET /boom`, `GET /load` | Chẩn đoán có giới hạn; mặc định tắt |
-
-Ba endpoint v1 chỉ hoạt động khi `ROAD_PROVIDER=vietmap`; không có key thì trả lỗi rõ ràng, không fallback sang demo. Migration là lệnh riêng. Logs gồm request ID, build SHA, status và duration; không ghi password, API key, query hay request body.
-
-## Cấu trúc repo
-
-```text
-app/                 Frontend, backend và kiểu dữ liệu dùng chung
-public/              Tài nguyên tĩnh
-tests/               Test ứng dụng, UI và policy CI
-scripts/             Công cụ local, CI và release
-terraform/           Bootstrap remote state và hạ tầng ứng dụng
-docs/                Hướng dẫn kỹ thuật và sơ đồ
-evidence/            Kết quả từng tiêu chí M1–M11 theo đề gốc
-.github/             Workflow và PR template cho GitHub
-Dockerfile           Image frontend + API
-compose*.yml         Môi trường app/MySQL local
-```
-
-Các báo cáo được đề gốc yêu cầu giữ ở root: `architecture.md`, `runbook.md`, `known-issues.md`, `cost-report.md`, `ai-failure-log.md`. Kế hoạch học, hướng dẫn agent, bản template tham khảo và slide chỉ lưu local, được bỏ qua bởi `.gitignore`.
-
-## Kiểm thử và CI
+Để phát triển frontend và API với hot reload:
 
 ```bash
-npm run check
-python3 -m unittest discover -s tests/ci -v
+npm run dev
 ```
 
-MySQL integration và HTTP/browser smoke chạy riêng; xem [kiểm thử](docs/testing.md). GitHub là nơi chạy application/policy CI, Docker + MySQL smoke, image scan, Terraform checks và CD Azure cá nhân; npm tải từ public registry. GitLab công ty dùng để review/source scan, không deploy; tích hợp image scan GitLab còn chờ nguồn OCI artifact phù hợp. Chưa coi YAML là bằng chứng pipeline đã chạy thành công.
+Nếu kết nối TCP tới MySQL trong Docker bị gián đoạn, xem phương án Unix socket trong [hướng dẫn phát triển local](docs/local-development.md).
 
-## Triển khai và dừng môi trường
-
-Thiết lập state, biến Azure và plan/apply theo [Terraform](terraform/README.md). Xem [CI/CD GitHub](docs/ci-github.md) để cấu hình OIDC và release; deploy mặc định bị khóa bằng `AZURE_CD_ENABLED` cho tới khi cấu hình sẵn sàng. Chỉ branch `main` được deploy App Service.
-
-Dừng app host bằng Ctrl+C và dừng môi trường local:
+Để dừng môi trường local nhưng giữ dữ liệu:
 
 ```bash
 docker compose down
 ```
 
-Lệnh trên giữ volume MySQL; không thêm `-v` nếu cần giữ dữ liệu. Với hạ tầng do Terraform quản lý, review `terraform -chdir=terraform/app plan -destroy` trước khi chạy `terraform -chdir=terraform/app destroy`. Giữ backend state tới khi không còn workload phụ thuộc. Tài nguyên tạo thủ công trên Portal cần được kiểm kê/import trước khi coi Terraform là nguồn quản lý đầy đủ. Theo quy tắc sandbox, lập kế hoạch dừng tài nguyên sau buổi làm việc, không để chạy qua đêm.
+## Cấu hình
 
-## Tài liệu
+Sao chép và điều chỉnh [.env.example](.env.example). Không commit API key hoặc mật khẩu thật.
 
-- [Chạy local và MySQL](docs/local-development.md)
-- [Kiến trúc](architecture.md) và [sơ đồ](docs/assets/hanoitrip-azure-flow.png)
-- [CI GitLab](docs/ci-gitlab.md), [CI/CD GitHub](docs/ci-github.md), [kiểm thử](docs/testing.md)
-- [Runbook](runbook.md), [known issues](known-issues.md), [cost report](cost-report.md), [AI failure log](ai-failure-log.md)
-- [Evidence M1–M11](evidence/README.md)
+| Biến                                                       | Mục đích                                                           |
+| ---------------------------------------------------------- | ------------------------------------------------------------------ |
+| `DB_MODE`                                                  | Chọn chế độ lưu dữ liệu; dùng `mysql` cho chức năng lưu hành trình |
+| `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER` | Thông tin kết nối MySQL                                            |
+| `MYSQL_PASSWORD`                                           | Mật khẩu của tài khoản ứng dụng                                    |
+| `MYSQL_TLS`, `MYSQL_CA_FILE`                               | Cấu hình kết nối TLS tùy môi trường                                |
+| `MYSQL_SOCKET_PATH`                                        | Unix socket thay cho TCP khi chạy local                            |
+| `ROUTES_MODE`                                              | Chọn dữ liệu hành trình minh họa hoặc nhà cung cấp transit         |
+| `GOOGLE_ROUTES_API_KEY`                                    | Khóa phía server cho hành trình transit khi được cấu hình          |
+| `ROAD_PROVIDER`                                            | `disabled` hoặc `vietmap`                                          |
+| `VIETMAP_API_KEY`                                          | Khóa phía server cho tìm kiếm, địa điểm và chỉ đường bộ            |
+| `BUILD_SHA`                                                | Mã phiên bản hiển thị qua endpoint `/version`                      |
+| `DIAGNOSTICS_ENABLED`                                      | Bật các endpoint chẩn đoán; mặc định tắt                           |
 
-## Quy trình đóng góp
+## API chính
 
-`main` là nhánh dài hạn duy nhất. Nhánh `feat/`, `fix/`, `chore/` sống tối đa 2 ngày, mọi thay đổi qua MR/PR, yêu cầu CI xanh và squash merge; không push trực tiếp hoặc force-push lên `main`. Mô tả MR nêu vấn đề, thay đổi, kiểm chứng (gồm trường hợp lỗi liên quan) và khai báo phần AI hỗ trợ. Giữ pre-commit Gitleaks; không bypass security gate.
+| Endpoint                  | Chức năng                                                      |
+| ------------------------- | -------------------------------------------------------------- |
+| `GET /health`             | Kiểm tra trạng thái ứng dụng và kết nối dữ liệu                |
+| `GET /version`            | Trả về phiên bản đang chạy                                     |
+| `GET /items`              | Liệt kê hành trình đã lưu                                      |
+| `POST /items`             | Lưu điểm đi và điểm đến                                        |
+| `POST /routes`            | Tìm hành trình transit hoặc trả dữ liệu minh họa theo cấu hình |
+| `GET /v1/search`          | Gợi ý địa điểm trong khu vực phục vụ                           |
+| `POST /v1/places/resolve` | Chuẩn hóa địa điểm đã chọn                                     |
+| `POST /v1/routes/road`    | Tìm đường cho ô tô hoặc xe máy                                 |
+| `GET /config`             | Trả về cấu hình công khai cần cho giao diện                    |
 
-GitHub là nguồn phát hành chính theo đề gốc; GitLab công ty là nơi review/scan bổ sung, không CD. Xem flow hai remote và điều kiện bật deploy trong [CI/CD GitHub](docs/ci-github.md). Không force-push để ép hai lịch sử squash giống nhau.
+API key chỉ được sử dụng ở server và không được trả về trình duyệt. Các endpoint dùng nhà cung cấp thật sẽ trả lỗi rõ ràng nếu thiếu cấu hình, thay vì âm thầm chuyển sang dữ liệu minh họa.
 
-Chỉ commit source, cấu hình mẫu và tài liệu phục vụ dự án. File mẫu `.env.example`, Terraform `*.example` và lockfile vẫn được theo dõi. `.dockerignore` giới hạn build context vào source và file cần để build image.
+## Kiểm thử
+
+Chạy toàn bộ kiểm tra tĩnh, unit test và build:
+
+```bash
+npm run check
+```
+
+Một số lệnh hữu ích khác:
+
+```bash
+npm run test:mysql
+npm run test:browser
+npm run test:browser:road
+```
+
+Xem phạm vi và điều kiện chạy từng nhóm test tại [docs/testing.md](docs/testing.md).
+
+## Cấu trúc dự án
+
+```text
+app/
+  client/          Giao diện và bản đồ tương tác
+  server/          API, provider adapters và database
+  shared/          Kiểu dữ liệu dùng chung
+public/            Tài nguyên tĩnh
+tests/             Unit, integration và browser tests
+scripts/           Công cụ thiết lập, kiểm thử và vận hành
+terraform/         Mô tả hạ tầng
+docs/              Tài liệu kỹ thuật
+evidence/          Hồ sơ kiểm chứng theo từng tiêu chí
+```
+
+Các file cấu hình công cụ cần nằm ở thư mục gốc để hệ sinh thái Node.js, Docker và TypeScript tự nhận diện đúng. Tài liệu dài và hồ sơ kiểm chứng được tách vào `docs/` và `evidence/` để giữ phần giới thiệu sản phẩm gọn gàng.
+
+## Giới hạn hiện tại
+
+- Hành trình đã lưu đang dùng chung, chưa có tài khoản cá nhân.
+- Chỉ đường giao thông công cộng bằng dữ liệu thật chưa được hoàn thiện.
+- Phạm vi tìm kiếm và chọn điểm được giới hạn quanh Hà Nội.
+- Chất lượng tìm kiếm và chỉ đường phụ thuộc vào dữ liệu của nhà cung cấp đã cấu hình.
+
+## Tài liệu kỹ thuật
+
+- [Kiến trúc hệ thống](architecture.md)
+- [Phát triển local](docs/local-development.md)
+- [Chiến lược kiểm thử](docs/testing.md)
+- [Triển khai và teardown hạ tầng](terraform/README.md)
+- [Runbook](runbook.md)
+- [Known issues](known-issues.md)
+- [Hồ sơ kiểm chứng](evidence/README.md)
+
+## Đóng góp
+
+Tạo một nhánh ngắn cho mỗi thay đổi, giữ commit tập trung vào một mục tiêu và chạy `npm run check` trước khi gửi review. Không commit secret, file `.env`, dữ liệu sinh ra khi chạy local hoặc dependency đã cài đặt.
