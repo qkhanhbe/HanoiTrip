@@ -81,6 +81,14 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertIn("AZURE_RELEASE_REQUIRE_ROAD_PROVIDER", self.workflow)
         self.assertIn("SMOKE_ROAD=1", self.workflow)
 
+    def test_warmup_tolerates_transient_restart_errors_but_requires_stability(self):
+        poller = (ROOT / "scripts/release/poll-version.mjs").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("stableExpected >= 3", poller)
+        self.assertIn("transient failed response(s)", poller)
+        self.assertNotIn("if (non200) throw", poller)
+
     def test_live_road_release_configures_a_key_vault_reference_fail_closed(self):
         self.assertIn("AZURE_VIETMAP_API_KEY_SECRET", self.workflow)
         self.assertIn('"ROAD_PROVIDER=vietmap"', self.workflow)
