@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 import { Worker } from 'node:worker_threads';
-import Fastify, { LogController } from 'fastify';
+import Fastify, { LogController, type FastifyRequest } from 'fastify';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import staticPlugin from '@fastify/static';
@@ -165,6 +165,40 @@ export async function createApp(config: Config, deps: Dependencies) {
       throw new AppError(503, 'FEATURE_UNAVAILABLE', 'Tìm kiếm địa điểm thật chưa được cấu hình.');
     return deps.places;
   };
+  const providerCall = async <T>(
+    request: FastifyRequest,
+    operation: 'search' | 'place' | 'road-route',
+    call: () => Promise<T>,
+  ): Promise<T> => {
+    const startedAt = performance.now();
+    try {
+      const result = await call();
+      request.log.info(
+        {
+          requestId: request.id,
+          provider: config.ROAD_PROVIDER,
+          providerOperation: operation,
+          providerStatus: 'success',
+          durationMs: Math.round((performance.now() - startedAt) * 100) / 100,
+        },
+        'provider_request_complete',
+      );
+      return result;
+    } catch (error) {
+      request.log.warn(
+        {
+          requestId: request.id,
+          provider: config.ROAD_PROVIDER,
+          providerOperation: operation,
+          providerStatus: 'error',
+          errorCode: error instanceof AppError ? error.code : 'PROVIDER_ERROR',
+          durationMs: Math.round((performance.now() - startedAt) * 100) / 100,
+        },
+        'provider_request_complete',
+      );
+      throw error;
+    }
+  };
   app.get(
     '/v1/search',
     { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
@@ -180,11 +214,13 @@ export async function createApp(config: Config, deps: Dependencies) {
           message: 'focusLat và focusLng phải được gửi cùng nhau.',
         })
         .parse(request.query);
-      return requirePlaces().search(
-        query.q,
-        query.focusLat === undefined
-          ? undefined
-          : { latitude: query.focusLat, longitude: query.focusLng! },
+      return providerCall(request, 'search', () =>
+        requirePlaces().search(
+          query.q,
+          query.focusLat === undefined
+            ? undefined
+            : { latitude: query.focusLat, longitude: query.focusLng! },
+        ),
       );
     },
   );
@@ -196,7 +232,7 @@ export async function createApp(config: Config, deps: Dependencies) {
         .object({ token: z.string().min(1).max(4096) })
         .strict()
         .parse(request.body);
-      return requirePlaces().resolve(token);
+      return providerCall(request, 'place', () => requirePlaces().resolve(token));
     },
   );
   app.post(
@@ -205,7 +241,8 @@ export async function createApp(config: Config, deps: Dependencies) {
     async (request) => {
       if (!deps.roadRoutes)
         throw new AppError(503, 'FEATURE_UNAVAILABLE', 'Tìm đường bộ thật chưa được cấu hình.');
-      return deps.roadRoutes(roadTripSchema.parse(request.body));
+      const input = roadTripSchema.parse(request.body);
+      return providerCall(request, 'road-route', () => deps.roadRoutes!(input));
     },
   );
   app.get('/items', async (request) => {

@@ -30,6 +30,7 @@ export function PlaceInput({
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
+  const [retry, setRetry] = useState(0);
   useEffect(() => {
     if (value) setQuery(null);
   }, [value]);
@@ -82,7 +83,7 @@ export function PlaceInput({
       window.clearTimeout(timer);
       abort.abort();
     };
-  }, [query, useRemote]);
+  }, [query, retry, useRemote]);
   const selectPoint = (point: Point) => {
     onChange(toPoint(point));
     setQuery(null);
@@ -209,7 +210,15 @@ export function PlaceInput({
           )}
           {searchError && (
             <li className="no-option" role="alert">
-              {searchError}
+              <span>{searchError}</span>
+              <button
+                type="button"
+                className="place-retry"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => setRetry((value) => value + 1)}
+              >
+                Thử tìm lại
+              </button>
             </li>
           )}
           {!searching && !searchError && !options.length && (

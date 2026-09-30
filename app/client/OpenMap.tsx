@@ -231,7 +231,12 @@ export default function OpenMap({
       {route && 'demoPath' in route && route.demoPath ? (
         <span className="open-map-demo-label">Nét đứt: tuyến minh họa, không dùng chỉ đường</span>
       ) : route && 'geometry' in route ? (
-        <span className="open-map-demo-label real-route-label">Tuyến đường bộ thật · VIETMAP</span>
+        <span className="open-map-demo-label real-route-label">
+          Tuyến đường bộ thật · dữ liệu{' '}
+          <a href="https://vietmap.vn/" target="_blank" rel="noreferrer">
+            © VIETMAP
+          </a>
+        </span>
       ) : null}
     </div>
   );

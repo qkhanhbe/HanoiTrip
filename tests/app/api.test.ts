@@ -179,6 +179,44 @@ describe('HTTP contracts', () => {
     ).toBe(200);
     expect(roadRoutes).toHaveBeenCalledWith({ ...input, mode: 'motorcycle' });
   });
+  it('logs provider operation metadata without query, token or key material', async () => {
+    let output = '';
+    const stream = new Writable({
+      write(chunk, _encoding, callback) {
+        output += chunk.toString();
+        callback();
+      },
+    });
+    await setup(
+      {
+        repository: new MemoryRepository(),
+        routes: demoProvider,
+        places: {
+          search: vi.fn(async () => ({ source: 'vietmap' as const, suggestions: [] })),
+          resolve: vi.fn(async () => ({ source: 'vietmap' as const, place: input.origin })),
+        },
+        logger: true,
+        logStream: stream,
+      },
+      { ROAD_PROVIDER: 'vietmap', VIETMAP_API_KEY: 'fixture-provider-key' },
+    );
+    const response = await app.inject('/v1/search?q=private-place-query');
+    expect(response.statusCode).toBe(200);
+    const providerLog = output
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line))
+      .find((line) => line.msg === 'provider_request_complete');
+    expect(providerLog).toMatchObject({
+      requestId: response.headers['x-request-id'],
+      provider: 'vietmap',
+      providerOperation: 'search',
+      providerStatus: 'success',
+      durationMs: expect.any(Number),
+    });
+    expect(output).not.toContain('private-place-query');
+    expect(output).not.toContain('fixture-provider-key');
+  });
   it('fails readiness and reads/writes when DB is unavailable, without leaking driver error', async () => {
     const repository = new MemoryRepository();
     for (const method of ['health', 'list', 'create'] as const)

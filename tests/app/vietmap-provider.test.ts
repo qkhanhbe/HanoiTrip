@@ -149,4 +149,45 @@ describe('VIETMAP adapters', () => {
       }),
     ).rejects.toMatchObject({ statusCode: 502, code: 'PROVIDER_INVALID' });
   });
+
+  it('maps provider timeouts without exposing the underlying error', async () => {
+    const timeout = Object.assign(new Error('private upstream details'), { name: 'TimeoutError' });
+    const provider = vietmapProviders(
+      apiKey,
+      vi.fn<typeof fetch>().mockRejectedValue(timeout),
+      now,
+    );
+    await expect(provider.places.search('van mieu')).rejects.toMatchObject({
+      statusCode: 504,
+      code: 'PROVIDER_TIMEOUT',
+      message: expect.not.stringContaining('private'),
+    });
+  });
+
+  it('normalizes no-route responses and daily quota exhaustion', async () => {
+    const roadInput = {
+      origin: toPoint(places[0]),
+      destination: toPoint(places[1]),
+      mode: 'car' as const,
+    };
+    const noRoute = vietmapProviders(
+      apiKey,
+      vi.fn<typeof fetch>().mockResolvedValue(Response.json({ code: 'ZERO_RESULTS' })),
+      now,
+    );
+    await expect(noRoute.roadRoutes(roadInput)).resolves.toEqual({
+      source: 'vietmap',
+      generatedAt: '2026-09-30T03:00:00.000Z',
+      routes: [],
+    });
+    const quota = vietmapProviders(
+      apiKey,
+      vi.fn<typeof fetch>().mockResolvedValue(Response.json({ code: 'OVER_DAILY_LIMIT' })),
+      now,
+    );
+    await expect(quota.roadRoutes(roadInput)).rejects.toMatchObject({
+      statusCode: 503,
+      code: 'PROVIDER_RATE_LIMITED',
+    });
+  });
 });

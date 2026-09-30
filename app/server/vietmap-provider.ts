@@ -29,24 +29,26 @@ const coordinate = z.tuple([
 ]);
 const routeResponse = z.object({
   code: z.string(),
-  paths: z.array(
-    z.object({
-      distance: z.number().nonnegative(),
-      time: z.number().int().nonnegative(),
-      points_encoded: z.literal(false),
-      points: z.array(coordinate).min(2),
-      instructions: z
-        .array(
-          z.object({
-            distance: z.number().nonnegative(),
-            time: z.number().int().nonnegative(),
-            text: z.string().default(''),
-            street_name: z.string().default(''),
-          }),
-        )
-        .default([]),
-    }),
-  ),
+  paths: z
+    .array(
+      z.object({
+        distance: z.number().nonnegative(),
+        time: z.number().int().nonnegative(),
+        points_encoded: z.literal(false),
+        points: z.array(coordinate).min(2),
+        instructions: z
+          .array(
+            z.object({
+              distance: z.number().nonnegative(),
+              time: z.number().int().nonnegative(),
+              text: z.string().default(''),
+              street_name: z.string().default(''),
+            }),
+          )
+          .default([]),
+      }),
+    )
+    .default([]),
 });
 
 export interface PlaceProvider {
@@ -190,13 +192,27 @@ export function vietmapProviders(
         params.append('point', `${input.origin.latitude},${input.origin.longitude}`);
         params.append('point', `${input.destination.latitude},${input.destination.longitude}`);
         const parsed = routeResponse.safeParse(await getJson('/route/v4', params));
-        if (!parsed.success || parsed.data.code !== 'OK')
+        if (!parsed.success)
           throw new AppError(
             502,
             'PROVIDER_INVALID',
             'Nguồn tìm đường trả về dữ liệu chưa hợp lệ.',
           );
         const generatedAt = new Date(now()).toISOString();
+        if (parsed.data.code === 'ZERO_RESULTS')
+          return { source: 'vietmap', generatedAt, routes: [] };
+        if (parsed.data.code === 'OVER_DAILY_LIMIT')
+          throw new AppError(
+            503,
+            'PROVIDER_RATE_LIMITED',
+            'Nguồn bản đồ đã hết hạn mức hôm nay. Hãy thử lại sau.',
+          );
+        if (parsed.data.code !== 'OK')
+          throw new AppError(
+            502,
+            'PROVIDER_INVALID',
+            'Nguồn tìm đường từ chối yêu cầu hợp lệ của ứng dụng.',
+          );
         return {
           source: 'vietmap',
           generatedAt,

@@ -154,6 +154,48 @@ it('searches a real place and requests a VIETMAP car route without demo fallback
   });
   expect(screen.getByText(/Tuyến đường bộ và geometry từ VIETMAP/)).toBeInTheDocument();
 });
+it('offers an explicit retry when real autocomplete temporarily fails', async () => {
+  let searchAttempts = 0;
+  fetchMock.mockImplementation(async (url) => {
+    if (url === '/config')
+      return Response.json({
+        routesMode: 'demo',
+        roadProvider: 'vietmap',
+        mapsBrowserKey: '',
+        storage: 'memory',
+        buildSha: 'release-b-test',
+      });
+    if (String(url).startsWith('/v1/search')) {
+      searchAttempts += 1;
+      if (searchAttempts === 1)
+        return Response.json(
+          { error: { message: 'Provider unavailable', requestId: 'retry-id' } },
+          { status: 503 },
+        );
+      return Response.json({
+        source: 'vietmap',
+        suggestions: [
+          {
+            token: 'signed-place-token',
+            label: 'Văn Miếu - Quốc Tử Giám',
+            address: 'Đống Đa, Hà Nội',
+          },
+        ],
+      });
+    }
+    return Response.json([]);
+  });
+  const user = userEvent.setup();
+  render(<App />);
+  await user.click(await screen.findByRole('button', { name: 'Ô tô' }));
+  const origin = screen.getByRole('combobox', { name: 'Điểm đi' });
+  await user.clear(origin);
+  await user.type(origin, 'van mieu');
+  expect(await screen.findByRole('alert')).toHaveTextContent('Chưa tải được gợi ý thật');
+  await user.click(screen.getByRole('button', { name: 'Thử tìm lại' }));
+  expect(await screen.findByText('Văn Miếu - Quốc Tử Giám')).toBeInTheDocument();
+  expect(searchAttempts).toBe(2);
+});
 it('lets users choose an endpoint from the interactive demo map', async () => {
   const user = userEvent.setup();
   render(<App />);

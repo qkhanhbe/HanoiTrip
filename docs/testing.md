@@ -51,16 +51,34 @@ kiểm tra distance, duration và LineString có geometry. GitHub CD chỉ chạ
 khi `AZURE_RELEASE_REQUIRE_ROAD_PROVIDER=true`; production swap còn có cờ độc lập
 `AZURE_PRODUCTION_SWAP_ENABLED`.
 
+Trước khi đưa PR release B về trạng thái ready, chạy benchmark có giới hạn trên
+staging. Lệnh này thực hiện đúng 40 provider request: search + resolve 10 địa danh,
+sau đó kiểm tra 10 cặp A–B cho cả `car` và `motorcycle`. Delay mặc định 4,1 giây
+giữ route requests dưới rate limit của app. Kiểm tra quota/cost trước rồi mới xác nhận:
+
+```bash
+mkdir -p output
+BASE_URL=https://<staging-host> \
+EXPECTED_SHA=<git-sha> \
+ROAD_BENCHMARK_CONFIRM=40 \
+npm run benchmark:road > output/road-benchmark.json
+```
+
+File trong `output/` chỉ là evidence local đang bị Git ignore. Review latency,
+distance, duration, số điểm geometry và snap distance; sau khi redact mới chép phần
+cần thiết vào evidence được track. Script không nhận hoặc in API key/provider token.
+
 ## Kết quả gần nhất
 
 30/09/2026, nhánh `feat/real-hanoi-routing`, Node 22.23.2: `npm run check`
-pass (36 tests thường, 1 MySQL integration skip trong suite mặc định), 17 policy
+pass (40 tests thường, 1 MySQL integration skip trong suite mặc định), 17 policy
 tests pass và MySQL integration opt-in pass. Browser thật xác nhận trạng thái
 provider-disabled, transit demo, MapLibre và build/provider metadata; không có console
 error. Image distroless build thành công bằng `docker build --network=host`, container
 user `65532:65532` pass HTTP/MySQL write smoke qua socket. Một row smoke do lượt test
-tạo đã được xóa. VIETMAP live test, image scan remote và staging release chưa chạy vì
-chưa có dev key/provider quota evidence.
+tạo đã được xóa. Trivy local và GitHub `container-check` đều pass với 0
+HIGH/CRITICAL sau exception có hạn đã ghi nhận. VIETMAP live test và staging release
+chưa chạy vì chưa có dev key/provider quota evidence.
 
 29/09/2026, worktree GitHub riêng trên nhánh `chore/github-ci-flow`, Node 22.23.2:
 `npm ci` qua public registry cài 329 package; `npm run check` pass (29 tests,
