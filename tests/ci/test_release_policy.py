@@ -168,6 +168,14 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertIn("expired_at: 2026-10-14", exceptions)
         self.assertIn("HanoiTrip does not expose or initiate DTLS", exceptions)
 
+    def test_storage_queue_logging_remains_visible_to_company_policy(self):
+        bootstrap = (ROOT / "terraform/bootstrap/main.tf").read_text(encoding="utf-8")
+        self.assertIn("queue_properties {", bootstrap)
+        self.assertIn("retention_policy_days = 7", bootstrap)
+        self.assertNotIn(
+            'resource "azurerm_storage_account_queue_properties"', bootstrap
+        )
+
     def test_migration_uses_reviewed_configuration_not_template_credentials(self):
         self.assertIn("AZURE_MYSQL_DATABASE", self.workflow)
         self.assertIn("AZURE_MYSQL_MIGRATION_USER", self.workflow)

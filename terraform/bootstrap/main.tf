@@ -6,9 +6,9 @@ resource "azurerm_resource_group" "state" {
 
 # LRS is intentional for this disposable, single-region internship sandbox.
 # Production state needs a separate resilience review before this expires.
-# Queue logging is configured by azurerm_storage_account_queue_properties.state;
-# Trivy evaluates the storage account resource without correlating that resource.
-#trivy:ignore:AVD-AZU-0057:exp:2027-03-31
+# Keep queue logging inline while AzureRM is pinned to v4: the company Semgrep
+# policy does not yet recognize the standalone queue-properties resource.
+# Migrate both together before upgrading this module to AzureRM v5.
 #trivy:ignore:AVD-AZU-0058:exp:2027-03-31
 resource "azurerm_storage_account" "state" {
   name                              = var.storage_account_name
@@ -27,17 +27,15 @@ resource "azurerm_storage_account" "state" {
     bypass         = ["Logging", "Metrics", "AzureServices"]
     ip_rules       = var.allowed_ip_cidrs
   }
-}
 
-resource "azurerm_storage_account_queue_properties" "state" {
-  storage_account_id = azurerm_storage_account.state.id
-
-  logging {
-    delete                = true
-    read                  = true
-    write                 = true
-    version               = "1.0"
-    retention_policy_days = 7
+  queue_properties {
+    logging {
+      delete                = true
+      read                  = true
+      write                 = true
+      version               = "1.0"
+      retention_policy_days = 7
+    }
   }
 }
 
