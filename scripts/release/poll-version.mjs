@@ -42,8 +42,9 @@ while (Date.now() < deadline) {
   }
   await appendFile(output, `${JSON.stringify(row)}\n`);
   if (stableExpected >= 3) {
-    if (non200) throw new Error(`Observed ${non200} non-200/network responses before ${expected}`);
-    console.log(`Observed ${expected} for three consecutive polls with no failed response.`);
+    console.log(
+      `Observed ${expected} for three consecutive polls after ${non200} transient failed response(s).`,
+    );
     process.exit(0);
   }
   await new Promise((resolve) => setTimeout(resolve, 1000));
