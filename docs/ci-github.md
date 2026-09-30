@@ -56,6 +56,9 @@ Workflow CD vẫn còn các điểm phải kiểm chứng trước khi bật:
 - Review cleanup rule IP tạm và rollback; hiện cleanup có các lệnh nuốt lỗi,
   phải kiểm chứng rule đã gỡ. Chốt ngưỡng image scan: hiện HIGH/CRITICAL chưa
   tương đương yêu cầu đề gốc “không còn CVE”.
+- PR và CD image scan dùng chung `.trivyignore.yaml`. Exception chỉ được chấp
+  nhận khi có phạm vi, lý do và `expired_at`; hết hạn phải làm gate đỏ. Không tạo
+  danh sách bỏ qua riêng trong workflow phát hành.
 
 Tài liệu chính thức: [GitHub OIDC với Azure](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-azure), [Azure CLI sitecontainers](https://learn.microsoft.com/cli/azure/webapp/sitecontainers) và [App Service slot swap](https://learn.microsoft.com/azure/app-service/deploy-staging-slots).
 Chưa thay đổi quyền/ruleset/environment trên GitHub hoặc Azure trong bước này.
