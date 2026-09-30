@@ -48,11 +48,16 @@ Workflow CD vẫn còn các điểm phải kiểm chứng trước khi bật:
 - Cấu hình OIDC Azure riêng cho GitHub environment azure-sandbox, quyền tối thiểu;
   giới hạn environment chỉ main và approval nếu tài khoản hỗ trợ. Không chuyển
   token/credential GitLab công ty sang GitHub.
+- Release yêu cầu VIETMAP phải đặt `AZURE_RELEASE_REQUIRE_ROAD_PROVIDER=true` và
+  `AZURE_VIETMAP_API_KEY_SECRET=vietmap-api-key`. CD chỉ gắn Key Vault reference,
+  không đọc hoặc truyền API key vào GitHub. `ROAD_PROVIDER` và reference để
+  non-sticky nên swap cùng image B; managed identity không swap, vì vậy cả hai slot
+  phải tiếp tục có UAMI được cấp `Key Vault Secrets User`.
 - Review cleanup rule IP tạm và rollback; hiện cleanup có các lệnh nuốt lỗi,
   phải kiểm chứng rule đã gỡ. Chốt ngưỡng image scan: hiện HIGH/CRITICAL chưa
   tương đương yêu cầu đề gốc “không còn CVE”.
 
-Tài liệu chính thức: [GitHub OIDC với Azure](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-azure) và [Azure CLI sitecontainers](https://learn.microsoft.com/cli/azure/webapp/sitecontainers).
+Tài liệu chính thức: [GitHub OIDC với Azure](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-azure), [Azure CLI sitecontainers](https://learn.microsoft.com/cli/azure/webapp/sitecontainers) và [App Service slot swap](https://learn.microsoft.com/azure/app-service/deploy-staging-slots).
 Chưa thay đổi quyền/ruleset/environment trên GitHub hoặc Azure trong bước này.
 
 Job `container-check` trên PR build image trong step riêng, Compose smoke dùng `--no-build`, rồi scan cùng image. Xem [kiểm thử](testing.md) và [known issues](../known-issues.md) để phân biệt kết quả local với phần còn cần kiểm chứng.

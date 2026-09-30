@@ -52,6 +52,7 @@ jobs:
       IMAGE_REPOSITORY: hanoitrip
       SLOT_NAME: staging
       REQUIRE_ROAD_PROVIDER: ${{ vars.AZURE_RELEASE_REQUIRE_ROAD_PROVIDER }}
+      VIETMAP_API_KEY_SECRET: ${{ vars.AZURE_VIETMAP_API_KEY_SECRET }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -118,8 +119,14 @@ jobs:
             --slot "$SLOT_NAME" --container-name main >/dev/null
           az webapp sitecontainers update --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
             --slot "$SLOT_NAME" --container-name main --image "$IMAGE" >/dev/null
-          az webapp config appsettings set --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" --slot "$SLOT_NAME" \
-            --settings "BUILD_SHA=$GITHUB_SHA" >/dev/null
+          if [ "$REQUIRE_ROAD_PROVIDER" = "true" ]; then
+            az webapp config appsettings set --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" --slot "$SLOT_NAME" \
+              --settings "BUILD_SHA=$GITHUB_SHA" "ROAD_PROVIDER=vietmap" \
+              "VIETMAP_API_KEY=@Microsoft.KeyVault(VaultName=$KEY_VAULT_NAME;SecretName=$VIETMAP_API_KEY_SECRET)" >/dev/null
+          else
+            az webapp config appsettings set --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" --slot "$SLOT_NAME" \
+              --settings "BUILD_SHA=$GITHUB_SHA" "ROAD_PROVIDER=disabled" >/dev/null
+          fi
           az webapp restart --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" --slot "$SLOT_NAME"
           staging_host=$(az webapp show --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
             --slot "$SLOT_NAME" --query defaultHostName --output tsv)

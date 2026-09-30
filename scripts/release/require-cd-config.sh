@@ -10,6 +10,9 @@ missing=()
 for name in "${required[@]}"; do
   if [ -z "${!name:-}" ]; then missing+=("$name"); fi
 done
+if [ "${REQUIRE_ROAD_PROVIDER:-false}" = "true" ] && [ -z "${VIETMAP_API_KEY_SECRET:-}" ]; then
+  missing+=("VIETMAP_API_KEY_SECRET")
+fi
 if [ "${#missing[@]}" -gt 0 ]; then
   printf 'Missing CD configuration: %s\n' "${missing[*]}" >&2
   exit 2

@@ -1,4 +1,6 @@
+import os
 from pathlib import Path
+import subprocess
 import unittest
 
 
@@ -28,6 +30,38 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertNotIn("$WEBAPP_NAME-$SLOT_NAME.azurewebsites.net", self.workflow)
         self.assertIn("AZURE_RELEASE_REQUIRE_ROAD_PROVIDER", self.workflow)
         self.assertIn("SMOKE_ROAD=1", self.workflow)
+
+    def test_live_road_release_configures_a_key_vault_reference_fail_closed(self):
+        self.assertIn("AZURE_VIETMAP_API_KEY_SECRET", self.workflow)
+        self.assertIn('"ROAD_PROVIDER=vietmap"', self.workflow)
+        self.assertIn(
+            "VIETMAP_API_KEY=@Microsoft.KeyVault(VaultName=$KEY_VAULT_NAME;SecretName=$VIETMAP_API_KEY_SECRET)",
+            self.workflow,
+        )
+
+        environment = {
+            **os.environ,
+            "CLIENT_ID": "fixture-client",
+            "TENANT_ID": "fixture-tenant",
+            "SUBSCRIPTION_ID": "fixture-subscription",
+            "RESOURCE_GROUP": "fixture-rg",
+            "WEBAPP_NAME": "fixture-app",
+            "ACR_NAME": "fixture-acr",
+            "KEY_VAULT_NAME": "fixture-kv",
+            "MYSQL_SERVER": "fixture-mysql",
+            "MYSQL_DATABASE": "fixture-db",
+            "MYSQL_MIGRATION_USER": "fixture-user",
+            "MYSQL_PASSWORD_SECRET": "fixture-db-secret",
+            "REQUIRE_ROAD_PROVIDER": "true",
+        }
+        command = ["bash", str(ROOT / "scripts/release/require-cd-config.sh")]
+        missing = subprocess.run(command, env=environment, capture_output=True, text=True)
+        self.assertEqual(missing.returncode, 2)
+        self.assertIn("VIETMAP_API_KEY_SECRET", missing.stderr)
+
+        environment["VIETMAP_API_KEY_SECRET"] = "vietmap-api-key"
+        configured = subprocess.run(command, env=environment, capture_output=True, text=True)
+        self.assertEqual(configured.returncode, 0, configured.stderr)
 
     def test_staging_updates_the_existing_sitecontainer_without_mode_conversion(self):
         self.assertIn("--query linuxFxVersion", self.workflow)
