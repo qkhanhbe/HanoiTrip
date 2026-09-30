@@ -86,7 +86,7 @@ ensure_role Contributor "$key_vault_id"
 ensure_role "Key Vault Secrets User" "$key_vault_id"
 ensure_role AcrPush "$acr_id"
 
-jq -n '{wait_timer:0,prevent_self_review:false,deployment_branch_policy:{protected_branches:false,custom_branch_policies:true}}' |
+jq -n '{wait_timer:0,deployment_branch_policy:{protected_branches:false,custom_branch_policies:true}}' |
   gh api --method PUT "repos/$repo/environments/$environment" --input - >/dev/null
 branch_policy_count=$(gh api "repos/$repo/environments/$environment/deployment-branch-policies" \
   --jq '[.branch_policies[] | select(.name == "main" and .type == "branch")] | length')
