@@ -22,6 +22,7 @@
     "smoke": "node scripts/smoke.mjs",
     "benchmark:road": "node scripts/benchmark-road.mjs",
     "test:browser": "node scripts/browser-smoke.mjs",
+    "test:browser:road": "node scripts/browser-road-smoke.mjs",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build"
   },
   "dependencies": {

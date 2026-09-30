@@ -39,6 +39,12 @@ Lệnh thứ hai ghi một favorite giả để kiểm tra đọc/ghi. Chỉ ch�
 
 `npm run test:browser` kiểm tra desktop/mobile, bản đồ và thao tác favorite; cần Chromium/WebGL và Internet. Unit UI tests không thay thế bước kiểm tra bản đồ thật.
 
+Sau khi build, `npm run test:browser:road` khởi động một BFF tạm với upstream
+VIETMAP giả lập, rồi dùng Chromium đi xuyên suốt search → signed resolve → route ô tô
+và xe máy. Test xác nhận geometry, attribution, responsive UI và API key không xuất
+hiện ở public config/DOM. Nó không gọi VIETMAP thật, không tiêu quota và không thay
+thế benchmark staging; GitHub PR chạy test này trong job `browser-road-check`.
+
 Khi staging đã cấu hình `ROAD_PROVIDER=vietmap`, chạy gate provider thật mà không
 truyền API key ra runner/browser:
 
