@@ -98,6 +98,16 @@ cần thiết vào evidence được track. Script không nhận hoặc in API k
 
 ## Kết quả gần nhất
 
+30/09/2026, release staging SHA `21b756c59686b58760afaddf9695fa63b70e8838`:
+[GitHub CD run 36688199042](https://github.com/qkhanhbe/HanoiTrip/actions/runs/36688199042)
+đã build/scan/push image bất biến, migrate và warm staging thành công; production swap
+được skip theo gate. `/version`, `/health` và road smoke pass. Browser provider thật
+pass search/resolve, route ô tô + xe máy, attribution, desktop/mobile và không lộ key.
+Benchmark staging pass 10 địa danh, 20 route bằng đúng 40 request (search p95 930,40
+ms; route p95 1.261,89 ms; geometry 70–335 điểm). Production vẫn chạy image A và
+không còn access rule tạm sau job. M2/M10 chưa hoàn thành vì chưa chạy production
+observer/swap và rollback rehearsal.
+
 30/09/2026, nhánh `feat/real-hanoi-routing`, Node 22.23.2: `npm run check`
 pass (40 tests thường, 1 MySQL integration skip trong suite mặc định), 20 policy
 tests pass và MySQL integration opt-in pass. Browser contract và browser provider
@@ -108,7 +118,8 @@ và đúng 40 provider request (search p95 886,36 ms; route p95 770,82 ms; geome
 staging. Image distroless build thành công bằng `docker build --network=host`,
 container user `65532:65532` pass HTTP/MySQL write smoke qua socket. Một row smoke do
 lượt test tạo đã được xóa. Trivy local và GitHub `container-check` đều pass với 0
-HIGH/CRITICAL sau exception có hạn đã ghi nhận. Staging release/swap chưa chạy.
+HIGH/CRITICAL sau exception có hạn đã ghi nhận. Kết quả này là gate local trước khi
+staging run ở đoạn trên, không phải bằng chứng production swap.
 
 29/09/2026, worktree GitHub riêng trên nhánh `chore/github-ci-flow`, Node 22.23.2:
 `npm ci` qua public registry cài 329 package; `npm run check` pass (29 tests,

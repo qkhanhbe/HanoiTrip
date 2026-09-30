@@ -27,41 +27,34 @@ dùng `https://registry.npmjs.org/` theo lockfile, không phụ thuộc jfrog-au
    migration additive → staging/health → quan sát production → swap → kiểm chứng
    hoặc rollback. PR không deploy. Không swap chỉ để hoàn tất bài khi bản B chưa chốt.
 
-### Khóa CD hiện tại — chưa bật deploy
+### Trạng thái CD — staging bật, production swap khóa
 
-Để trống hoặc đặt false cả `AZURE_CD_ENABLED` và `AZURE_CD_CONFIG_REVIEWED`.
-Deploy job cần cả hai true và ref main; không phải bằng chứng đã sẵn sàng.
-Workflow CD vẫn còn các điểm phải kiểm chứng trước khi bật:
+Ngày 30/09/2026, [run 36688199042](https://github.com/qkhanhbe/HanoiTrip/actions/runs/36688199042)
+đã kiểm chứng flow OIDC → build/scan → ACR → migration → staging warm-up → smoke
+trên commit `21b756c59686b58760afaddf9695fa63b70e8838`. Workflow lấy đúng hostname có
+suffix Portal, cập nhật main container ở chế độ `sitecontainers`, dùng Key Vault
+reference cho VIETMAP và dọn toàn bộ rule runner tạm. Production vẫn ở image
+`manual-20260926-1`; bước swap bị skip theo gate độc lập.
 
-- Workflow lấy `defaultHostName` thực tế cho từng slot; cần xác nhận lại bằng một
-  staging run vì Azure gắn suffix riêng cho hostname Portal-created.
-- Cloud read-only 30/09 xác nhận production/staging dùng `linuxFxVersion=sitecontainers`
-  với main container tên `main`. Workflow kiểm tra mode rồi dùng
-  `az webapp sitecontainers update --container-name main --image ...`; nếu mode
-  khác thì fail, không tự chuyển kiểu triển khai. Lệnh đã qua policy test nhưng
-  chưa được chạy deploy thật.
-- Migration không còn hardcode user/secret của Terraform mẫu. Trước khi bật CD,
-  phải review và cấu hình `AZURE_MYSQL_DATABASE`, `AZURE_MYSQL_MIGRATION_USER`,
-  `AZURE_MYSQL_PASSWORD_SECRET`, TLS CA và quyền DB thực tế; không dùng mật khẩu
-  đã lộ trong chat.
-- Kiểm kê/import hạ tầng Portal vào Terraform; không apply chồng để tạo tài nguyên.
-- Cấu hình OIDC Azure riêng cho GitHub environment azure-sandbox, quyền tối thiểu;
-  giới hạn environment chỉ main và approval nếu tài khoản hỗ trợ. Không chuyển
-  token/credential GitLab công ty sang GitHub.
-- Release yêu cầu VIETMAP phải đặt `AZURE_RELEASE_REQUIRE_ROAD_PROVIDER=true` và
-  `AZURE_VIETMAP_API_KEY_SECRET=vietmap-api-key`. CD chỉ gắn Key Vault reference,
-  không đọc hoặc truyền API key vào GitHub. `ROAD_PROVIDER` và reference để
-  non-sticky nên swap cùng image B; managed identity không swap, vì vậy cả hai slot
-  phải tiếp tục có UAMI được cấp `Key Vault Secrets User`.
-- Review cleanup rule IP tạm và rollback; hiện cleanup có các lệnh nuốt lỗi,
-  phải kiểm chứng rule đã gỡ. Chốt ngưỡng image scan: hiện HIGH/CRITICAL chưa
-  tương đương yêu cầu đề gốc “không còn CVE”.
-- PR và CD image scan dùng chung `.trivyignore.yaml`. Exception chỉ được chấp
-  nhận khi có phạm vi, lý do và `expired_at`; hết hạn phải làm gate đỏ. Không tạo
-  danh sách bỏ qua riêng trong workflow phát hành.
+Trạng thái repository variables sau run:
+
+- `AZURE_CD_ENABLED=true` và `AZURE_CD_CONFIG_REVIEWED=true`: mọi commit đã merge
+  vào `main` có thể tự động phát hành lên staging;
+- `AZURE_CD_OIDC_PROBE_ENABLED=false`: probe riêng đã hoàn thành;
+- `AZURE_PRODUCTION_SWAP_ENABLED=false`: tuyệt đối không swap production khi chưa
+  có release approval, benchmark và rollback rehearsal.
+
+Release VIETMAP giữ `AZURE_RELEASE_REQUIRE_ROAD_PROVIDER=true` và secret name
+`vietmap-api-key`. CD chỉ gắn Key Vault reference, không đọc hoặc truyền API key vào
+GitHub. `ROAD_PROVIDER` và reference là non-sticky để có thể đi cùng image B khi
+swap; managed identity không swap nên cả hai slot tiếp tục dùng UAMI có quyền
+`Key Vault Secrets User`. PR và CD image scan dùng chung `.trivyignore.yaml`;
+exception phải có phạm vi, lý do và `expired_at`, hết hạn làm gate đỏ.
+
+Phần còn thiếu trước production là production observer A→B, rollback rehearsal và
+raw evidence M2/M10. Không bật cờ swap chỉ để làm xanh bài.
 
 Tài liệu chính thức: [GitHub OIDC với Azure](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-azure), [Azure CLI sitecontainers](https://learn.microsoft.com/cli/azure/webapp/sitecontainers) và [App Service slot swap](https://learn.microsoft.com/azure/app-service/deploy-staging-slots).
-Chưa thay đổi quyền/ruleset/environment trên GitHub hoặc Azure trong bước này.
 
 Bootstrap OIDC idempotent không tạo client secret và luôn giữ ba cờ deploy/review/
 swap ở `false`:
