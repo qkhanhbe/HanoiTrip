@@ -71,8 +71,10 @@ bash scripts/release/configure-github-oidc.sh
 Script giới hạn federated subject theo GitHub environment, chỉ cho nhánh `main` dùng
 environment, cấp quyền theo từng Web App/MySQL/Key Vault/ACR và lưu ba ID OIDC dưới
 dạng environment secrets. Chạy script chưa phải là bật CD; sau đó vẫn phải audit
-variables, thử OIDC read-only, xử lý drift Portal/Terraform và review cleanup trước
-khi đổi hai cờ `AZURE_CD_ENABLED`/`AZURE_CD_CONFIG_REVIEWED`.
+variables. `AZURE_CD_OIDC_PROBE_ENABLED=true` chỉ cho phép job main đăng nhập và đọc
+metadata bốn tài nguyên, không build/deploy/restart. Sau khi probe pass, đặt lại false,
+xử lý drift Portal/Terraform và review cleanup trước khi đổi hai cờ
+`AZURE_CD_ENABLED`/`AZURE_CD_CONFIG_REVIEWED`.
 
 Job `container-check` trên PR build image trong step riêng, Compose smoke dùng `--no-build`, rồi scan cùng image. Xem [kiểm thử](testing.md) và [known issues](../known-issues.md) để phân biệt kết quả local với phần còn cần kiểm chứng.
 

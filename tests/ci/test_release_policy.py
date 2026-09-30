@@ -18,6 +18,22 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertIn("vars.AZURE_CD_ENABLED == 'true'", self.workflow)
         self.assertIn("vars.AZURE_CD_CONFIG_REVIEWED == 'true'", self.workflow)
 
+    def test_oidc_probe_is_main_only_and_read_only(self):
+        marker = "oidc-probe:"
+        start = self.workflow.index(marker)
+        end = self.workflow.index("\n  deploy:", start)
+        probe = self.workflow[start:end]
+        self.assertIn("github.ref == 'refs/heads/main'", probe)
+        self.assertIn("AZURE_CD_OIDC_PROBE_ENABLED", probe)
+        self.assertIn("environment: azure-sandbox", probe)
+        self.assertIn("id-token: write", probe)
+        self.assertIn("az webapp show", probe)
+        self.assertIn("az acr show", probe)
+        self.assertIn("az mysql flexible-server show", probe)
+        self.assertIn("az keyvault show", probe)
+        for mutation in (" create", " update", " set", " delete", " swap", " restart"):
+            self.assertNotIn(mutation, probe)
+
     def test_production_swap_has_an_independent_opt_in(self):
         marker = "- name: Swap while observing production"
         start = self.workflow.index(marker)
@@ -73,6 +89,7 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertNotIn("client-secret", script)
         self.assertIn("set_variable AZURE_CD_ENABLED false", script)
         self.assertIn("set_variable AZURE_CD_CONFIG_REVIEWED false", script)
+        self.assertIn("set_variable AZURE_CD_OIDC_PROBE_ENABLED true", script)
         self.assertIn("set_variable AZURE_PRODUCTION_SWAP_ENABLED false", script)
         self.assertNotIn('ensure_role Contributor "$resource_group', script)
 

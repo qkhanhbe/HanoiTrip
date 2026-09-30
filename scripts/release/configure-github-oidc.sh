@@ -105,6 +105,7 @@ set_variable() {
 
 set_variable AZURE_CD_ENABLED false
 set_variable AZURE_CD_CONFIG_REVIEWED false
+set_variable AZURE_CD_OIDC_PROBE_ENABLED true
 set_variable AZURE_PRODUCTION_SWAP_ENABLED false
 set_variable AZURE_RESOURCE_GROUP "$resource_group"
 set_variable AZURE_WEBAPP_NAME "$webapp_name"
