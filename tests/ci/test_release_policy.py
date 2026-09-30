@@ -83,7 +83,15 @@ class ReleasePolicyTests(unittest.TestCase):
         script = (ROOT / "scripts/release/configure-github-oidc.sh").read_text(
             encoding="utf-8"
         )
-        self.assertIn('expected_subject="repo:${repo}:environment:${environment}"', script)
+        self.assertIn(
+            'expected_subject="repo:${owner_login}@${owner_id}/${repo_name}@${repo_id}:environment:${environment}"',
+            script,
+        )
+        self.assertIn('legacy_subject="repo:${repo}:environment:${environment}"', script)
+        self.assertIn('if [ "$actual_subject" = "$legacy_subject" ]', script)
+        self.assertIn("az ad app federated-credential delete", script)
+        self.assertIn('--federated-credential-id "$credential_name"', script)
+        self.assertIn("refusing to widen trust", script)
         self.assertIn("api://AzureADTokenExchange", script)
         self.assertNotIn("az ad app credential reset", script)
         self.assertNotIn("client-secret", script)
