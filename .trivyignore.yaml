@@ -1,0 +1,7 @@
+vulnerabilities:
+  - id: CVE-2026-84782
+    expired_at: 2026-10-14
+    statement: >-
+      Temporary exception while Debian/Distroless has no fixed OpenSSL package.
+      HanoiTrip does not expose or initiate DTLS; remove this entry as soon as a
+      fixed supported Distroless Node.js 22 image is published.

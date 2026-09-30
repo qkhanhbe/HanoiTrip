@@ -18,6 +18,7 @@
 
 - Trivy IaC hiện còn Medium/Low: MySQL public endpoint có firewall, App Service authentication chưa bật, storage state dùng LRS/không CMK và một số hardening phụ. Gate theo đề chỉ chặn secret/High/Critical; warnings vẫn phải review.
 - Policy SCA GitHub tạm chặn HIGH/CRITICAL vì không có TI blacklist/component nội bộ từ GitLab để tái tạo chính xác.
+- Runtime scan tạm miễn đúng `CVE-2026-84782` đến `2026-10-14`: Debian 13/Distroless chưa có fixed OpenSSL package và app không dùng DTLS. Không mở rộng thành `--ignore-unfixed`; xóa exception ngay khi image hỗ trợ có bản vá.
 - MapLibre được lazy-load nhưng chunk map vẫn lớn; lần đầu mở map có thể chậm trên mạng yếu.
 - Favorites dùng chung sandbox, chưa có tài khoản hay phân quyền người dùng.
 - GitHub-hosted runner cần mở IP tạm cho production, staging, MySQL và Key Vault; cleanup có `always()`, nhưng vẫn phải kiểm tra rule orphan sau mọi run lỗi.
