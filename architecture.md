@@ -1,6 +1,6 @@
 # HanoiTrip architecture
 
-HanoiTrip là một SPA React và API Fastify được đóng gói trong cùng một image. MySQL lưu hành trình yêu thích; route demo chỉ phục vụ phát triển, còn Google Routes là adapter live dự kiến.
+HanoiTrip là một SPA React và API Fastify được đóng gói trong cùng một image. MySQL lưu hành trình yêu thích; route demo chỉ phục vụ phát triển. Google transit và VIETMAP Search/Place/Road nằm sau provider adapter, dùng canonical contract để frontend không phụ thuộc payload bên ngoài.
 
 ## Luồng traffic
 
@@ -11,7 +11,8 @@ flowchart LR
     Runner[GitHub CD runner tạm thời] -->|HTTPS khi release| Stage[Staging slot\ncùng image SHA]
     Prod -->|TLS 3306| DB[(MySQL Flexible Server)]
     Stage -->|TLS 3306| DB
-    Prod -->|HTTPS server-side| Routes[Google Routes API]
+    Prod -->|HTTPS server-side| Transit[Google Routes API]
+    Prod -->|HTTPS server-side| Road[VIETMAP Search/Place/Route v4]
     Browser[Browser] -->|tiles/style| Map[OpenFreeMap]
     Prod -->|JSON logs + metrics| Logs[Log Analytics / Azure Monitor]
 ```
@@ -31,7 +32,24 @@ flowchart LR
     Plan[GitHub plan OIDC identity] -->|read + state data plane| State[(Terraform Blob state)]
 ```
 
-ACR admin user bị tắt. GitHub dùng OIDC, không lưu client secret. App settings chỉ giữ Key Vault reference cho password/key server-side; browser key là public-by-design nhưng phải giới hạn referrer và API.
+ACR admin user bị tắt. GitHub dùng OIDC, không lưu client secret. App settings chỉ giữ Key Vault reference cho password/key server-side; browser key là public-by-design nhưng phải giới hạn referrer và API. VIETMAP key không vào `/config`; autocomplete `ref_id` được ký thành token hết hạn trước khi gửi browser.
+
+## Ranh giới provider
+
+```mermaid
+flowchart LR
+    UI[React planner] --> BFF[Fastify BFF]
+    BFF --> Place[PlaceProvider]
+    BFF --> Road[RoadRoutingProvider]
+    BFF --> Transit[RoutesProvider]
+    Place --> VM1[VIETMAP Autocomplete + Place v4]
+    Road --> VM2[VIETMAP Route v4]
+    Transit --> Google[Google transit]
+    Transit --> Demo[Demo được gắn nhãn]
+    BFF --> Canonical[Point + GeoJSON LineString]
+```
+
+Road route nhận provider geometry dạng `[lat,lng]` và chuẩn hóa thành GeoJSON WGS84 `[longitude,latitude]`. Endpoint v1 là additive; `/routes`, `/items`, `/health` và `/version` giữ contract cũ để rollback image không cần rollback database.
 
 ## Luồng release
 

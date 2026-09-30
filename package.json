@@ -20,7 +20,10 @@
     "test": "vitest run",
     "test:mysql": "MYSQL_TEST=1 vitest run tests/app/mysql.integration.test.ts",
     "smoke": "node scripts/smoke.mjs",
+    "benchmark:road": "node scripts/benchmark-road.mjs",
     "test:browser": "node scripts/browser-smoke.mjs",
+    "test:browser:road": "node scripts/browser-road-smoke.mjs",
+    "test:browser:road:live": "node scripts/browser-road-live.mjs",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build"
   },
   "dependencies": {

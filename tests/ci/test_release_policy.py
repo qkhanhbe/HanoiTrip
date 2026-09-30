@@ -1,0 +1,115 @@
+import os
+from pathlib import Path
+import subprocess
+import unittest
+
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+class ReleasePolicyTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.workflow = (ROOT / ".github/workflows/cd.yml").read_text(encoding="utf-8")
+
+    def test_only_main_can_enter_deploy_job(self):
+        self.assertIn("branches: [main]", self.workflow)
+        self.assertIn("github.ref == 'refs/heads/main'", self.workflow)
+        self.assertIn("vars.AZURE_CD_ENABLED == 'true'", self.workflow)
+        self.assertIn("vars.AZURE_CD_CONFIG_REVIEWED == 'true'", self.workflow)
+
+    def test_oidc_probe_is_main_only_and_read_only(self):
+        marker = "oidc-probe:"
+        start = self.workflow.index(marker)
+        end = self.workflow.index("\n  deploy:", start)
+        probe = self.workflow[start:end]
+        self.assertIn("github.ref == 'refs/heads/main'", probe)
+        self.assertIn("AZURE_CD_OIDC_PROBE_ENABLED", probe)
+        self.assertIn("environment: azure-sandbox", probe)
+        self.assertIn("id-token: write", probe)
+        self.assertIn("az webapp show", probe)
+        self.assertIn("az acr show", probe)
+        self.assertIn("az mysql flexible-server show", probe)
+        self.assertIn("az keyvault show", probe)
+        for mutation in (" create", " update", " set", " delete", " swap", " restart"):
+            self.assertNotIn(mutation, probe)
+
+    def test_production_swap_has_an_independent_opt_in(self):
+        marker = "- name: Swap while observing production"
+        start = self.workflow.index(marker)
+        swap_section = self.workflow[start : start + 300]
+        self.assertIn("vars.AZURE_PRODUCTION_SWAP_ENABLED == 'true'", swap_section)
+        self.assertIn("Production verification failed; reversing the swap.", self.workflow)
+
+    def test_staging_uses_azure_reported_hosts_and_optional_live_road_gate(self):
+        self.assertGreaterEqual(self.workflow.count("--query defaultHostName"), 2)
+        self.assertNotIn("$WEBAPP_NAME-$SLOT_NAME.azurewebsites.net", self.workflow)
+        self.assertIn("AZURE_RELEASE_REQUIRE_ROAD_PROVIDER", self.workflow)
+        self.assertIn("SMOKE_ROAD=1", self.workflow)
+
+    def test_live_road_release_configures_a_key_vault_reference_fail_closed(self):
+        self.assertIn("AZURE_VIETMAP_API_KEY_SECRET", self.workflow)
+        self.assertIn('"ROAD_PROVIDER=vietmap"', self.workflow)
+        self.assertIn(
+            "VIETMAP_API_KEY=@Microsoft.KeyVault(VaultName=$KEY_VAULT_NAME;SecretName=$VIETMAP_API_KEY_SECRET)",
+            self.workflow,
+        )
+
+        environment = {
+            **os.environ,
+            "CLIENT_ID": "fixture-client",
+            "TENANT_ID": "fixture-tenant",
+            "SUBSCRIPTION_ID": "fixture-subscription",
+            "RESOURCE_GROUP": "fixture-rg",
+            "WEBAPP_NAME": "fixture-app",
+            "ACR_NAME": "fixture-acr",
+            "KEY_VAULT_NAME": "fixture-kv",
+            "MYSQL_SERVER": "fixture-mysql",
+            "MYSQL_DATABASE": "fixture-db",
+            "MYSQL_MIGRATION_USER": "fixture-user",
+            "MYSQL_PASSWORD_SECRET": "fixture-db-secret",
+            "REQUIRE_ROAD_PROVIDER": "true",
+        }
+        command = ["bash", str(ROOT / "scripts/release/require-cd-config.sh")]
+        missing = subprocess.run(command, env=environment, capture_output=True, text=True)
+        self.assertEqual(missing.returncode, 2)
+        self.assertIn("VIETMAP_API_KEY_SECRET", missing.stderr)
+
+        environment["VIETMAP_API_KEY_SECRET"] = "vietmap-api-key"
+        configured = subprocess.run(command, env=environment, capture_output=True, text=True)
+        self.assertEqual(configured.returncode, 0, configured.stderr)
+
+    def test_oidc_bootstrap_is_environment_scoped_and_keeps_cd_disabled(self):
+        script = (ROOT / "scripts/release/configure-github-oidc.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('expected_subject="repo:${repo}:environment:${environment}"', script)
+        self.assertIn("api://AzureADTokenExchange", script)
+        self.assertNotIn("az ad app credential reset", script)
+        self.assertNotIn("client-secret", script)
+        self.assertIn("set_variable AZURE_CD_ENABLED false", script)
+        self.assertIn("set_variable AZURE_CD_CONFIG_REVIEWED false", script)
+        self.assertIn("set_variable AZURE_CD_OIDC_PROBE_ENABLED true", script)
+        self.assertIn("set_variable AZURE_PRODUCTION_SWAP_ENABLED false", script)
+        self.assertNotIn('ensure_role Contributor "$resource_group', script)
+
+    def test_staging_updates_the_existing_sitecontainer_without_mode_conversion(self):
+        self.assertIn("--query linuxFxVersion", self.workflow)
+        self.assertIn('if [ "$container_mode" != "sitecontainers" ]', self.workflow)
+        self.assertIn("az webapp sitecontainers show", self.workflow)
+        self.assertIn("az webapp sitecontainers update", self.workflow)
+        self.assertIn("--container-name main --image \"$IMAGE\"", self.workflow)
+        self.assertNotIn("az webapp config container set", self.workflow)
+
+    def test_migration_uses_reviewed_configuration_not_template_credentials(self):
+        self.assertIn("AZURE_MYSQL_DATABASE", self.workflow)
+        self.assertIn("AZURE_MYSQL_MIGRATION_USER", self.workflow)
+        self.assertIn("AZURE_MYSQL_PASSWORD_SECRET", self.workflow)
+        self.assertIn('--name "$MYSQL_PASSWORD_SECRET"', self.workflow)
+        self.assertIn('MYSQL_USER="$MYSQL_MIGRATION_USER"', self.workflow)
+        self.assertNotIn("MYSQL_USER: hanoiadmin", self.workflow)
+        self.assertNotIn("--name mysql-admin-password", self.workflow)
+
+
+if __name__ == "__main__":
+    unittest.main()

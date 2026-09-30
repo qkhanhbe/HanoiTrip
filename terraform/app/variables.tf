@@ -51,6 +51,16 @@ variable "routes_mode" {
   }
 }
 
+variable "road_provider" {
+  type        = string
+  default     = "disabled"
+  description = "Enable VIETMAP road/search only after the server key exists in Key Vault."
+  validation {
+    condition     = contains(["disabled", "vietmap"], var.road_provider)
+    error_message = "Use disabled or vietmap."
+  }
+}
+
 variable "mysql_sku_name" {
   type        = string
   default     = "B_Standard_B1ms"

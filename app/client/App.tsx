@@ -2,8 +2,10 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import {
   ArrowDownUp,
   ArrowRight,
+  Bike,
   Bookmark,
   BusFront,
+  CarFront,
   Check,
   Clock3,
   Compass,
@@ -13,12 +15,21 @@ import {
   Route,
   X,
 } from 'lucide-react';
-import type { Item, Point, PublicConfig, RoutesResponse, TripInput } from '../shared/contracts';
+import type {
+  Item,
+  Point,
+  PublicConfig,
+  RoadMode,
+  RoadRoutesResponse,
+  RoutesResponse,
+  TripInput,
+} from '../shared/contracts';
 import { isSupportedPoint } from '../shared/geo';
 import { places, toPoint } from '../shared/places';
 import { api, ApiError } from './api';
 import { PlaceInput } from './PlaceInput';
 import { JourneyCard, time } from './JourneyCard';
+import { RoadRouteCard } from './RoadRouteCard';
 const OpenMap = lazy(() => import('./OpenMap'));
 const GoogleMap = lazy(() => import('./GoogleMap'));
 export default function App() {
@@ -28,8 +39,9 @@ export default function App() {
   const [destination, setDestination] = useState<Point | null>(toPoint(places[2]));
   const [departure, setDeparture] = useState('now');
   const [scheduled, setScheduled] = useState('');
-  const [response, setResponse] = useState<RoutesResponse>();
+  const [response, setResponse] = useState<RoutesResponse | RoadRoutesResponse>();
   const [submitted, setSubmitted] = useState<TripInput>();
+  const [plannerMode, setPlannerMode] = useState<'transit' | RoadMode>('transit');
   const [selected, setSelected] = useState(0);
   const [expanded, setExpanded] = useState<string>();
   const [loading, setLoading] = useState(false);
@@ -86,14 +98,20 @@ export default function App() {
       setError('Chọn điểm đi và điểm đến từ gợi ý, hoặc nhập tọa độ.');
       return;
     }
-    if (departure === 'scheduled' && !scheduled) {
+    if (plannerMode === 'transit' && departure === 'scheduled' && !scheduled) {
       setError('Chọn ngày và giờ khởi hành.');
+      return;
+    }
+    if (plannerMode !== 'transit' && config?.roadProvider !== 'vietmap') {
+      setError('Tuyến đường bộ thật chưa được cấu hình API key trên môi trường này.');
       return;
     }
     const input: TripInput = {
       origin,
       destination,
-      ...(departure === 'scheduled' ? { departureTime: new Date(scheduled).toISOString() } : {}),
+      ...(plannerMode === 'transit' && departure === 'scheduled'
+        ? { departureTime: new Date(scheduled).toISOString() }
+        : {}),
     };
     controller.current?.abort();
     const abort = new AbortController();
@@ -103,11 +121,14 @@ export default function App() {
     setResponse(undefined);
     setExpanded(undefined);
     try {
-      const result = await api<RoutesResponse>('/routes', {
-        method: 'POST',
-        body: JSON.stringify(input),
-        signal: abort.signal,
-      });
+      const result = await api<RoutesResponse | RoadRoutesResponse>(
+        plannerMode === 'transit' ? '/routes' : '/v1/routes/road',
+        {
+          method: 'POST',
+          body: JSON.stringify(plannerMode === 'transit' ? input : { ...input, mode: plannerMode }),
+          signal: abort.signal,
+        },
+      );
       if (!abort.signal.aborted) {
         setResponse(result);
         setSubmitted(input);
@@ -163,7 +184,11 @@ export default function App() {
     changePoint(pickTarget, point);
     showNotice(`Đã chọn ${pickTarget === 'origin' ? 'điểm đi' : 'điểm đến'} trên bản đồ.`);
   };
-  const route = response?.routes[selected];
+  const roadResponse = response?.source === 'vietmap' ? response : undefined;
+  const transitResponse = response && response.source !== 'vietmap' ? response : undefined;
+  const roadRoute = roadResponse?.routes[selected];
+  const transitRoute = transitResponse?.routes[selected];
+  const route = roadRoute ?? transitRoute;
   return (
     <div className="app-shell">
       <a href="#planner" className="skip-link">
@@ -179,7 +204,7 @@ export default function App() {
           </span>
         </a>
         <div className="header-center">
-          <MapPin size={15} /> Hà Nội <span className="header-divider" /> Giao thông công cộng
+          <MapPin size={15} /> Hà Nội <span className="header-divider" /> Tìm đường đa phương thức
         </div>
         <button className="about-button" onClick={() => setAbout(true)}>
           <Info size={17} />
@@ -219,6 +244,7 @@ export default function App() {
                         value={origin}
                         kind="origin"
                         onChange={(point) => changePoint('origin', point)}
+                        remoteSearch={config?.roadProvider === 'vietmap'}
                       />
                       <div className="location-divider" />
                       <PlaceInput
@@ -226,6 +252,7 @@ export default function App() {
                         value={destination}
                         kind="destination"
                         onChange={(point) => changePoint('destination', point)}
+                        remoteSearch={config?.roadProvider === 'vietmap'}
                       />
                       <button
                         className="swap-button"
@@ -240,27 +267,70 @@ export default function App() {
                         <ArrowDownUp size={17} />
                       </button>
                     </div>
-                    <div className="search-options">
-                      <BusFront size={17} />
-                      <span>Xe buýt &amp; tàu điện</span>
-                      <span className="options-spacer" />
-                      <Clock3 size={15} />
-                      <label className="sr-only" htmlFor="departure">
-                        Thời điểm đi
-                      </label>
-                      <select
-                        id="departure"
-                        value={departure}
-                        onChange={(event) => {
+                    <div className="travel-modes" role="group" aria-label="Phương tiện">
+                      <button
+                        type="button"
+                        className={plannerMode === 'car' ? 'active' : ''}
+                        aria-pressed={plannerMode === 'car'}
+                        disabled={config?.roadProvider !== 'vietmap'}
+                        onClick={() => {
                           clearResults();
-                          setDeparture(event.target.value);
+                          setPlannerMode('car');
                         }}
                       >
-                        <option value="now">Đi ngay</option>
-                        <option value="scheduled">Chọn giờ</option>
-                      </select>
+                        <CarFront size={17} /> Ô tô
+                      </button>
+                      <button
+                        type="button"
+                        className={plannerMode === 'motorcycle' ? 'active' : ''}
+                        aria-pressed={plannerMode === 'motorcycle'}
+                        disabled={config?.roadProvider !== 'vietmap'}
+                        onClick={() => {
+                          clearResults();
+                          setPlannerMode('motorcycle');
+                        }}
+                      >
+                        <Bike size={17} /> Xe máy
+                      </button>
+                      <button
+                        type="button"
+                        className={plannerMode === 'transit' ? 'active' : ''}
+                        aria-pressed={plannerMode === 'transit'}
+                        onClick={() => {
+                          clearResults();
+                          setPlannerMode('transit');
+                        }}
+                      >
+                        <BusFront size={17} /> Công cộng
+                      </button>
                     </div>
-                    {departure === 'scheduled' && (
+                    {plannerMode === 'transit' ? (
+                      <div className="search-options">
+                        <BusFront size={17} />
+                        <span>Xe buýt &amp; tàu điện</span>
+                        <span className="options-spacer" />
+                        <Clock3 size={15} />
+                        <label className="sr-only" htmlFor="departure">
+                          Thời điểm đi
+                        </label>
+                        <select
+                          id="departure"
+                          value={departure}
+                          onChange={(event) => {
+                            clearResults();
+                            setDeparture(event.target.value);
+                          }}
+                        >
+                          <option value="now">Đi ngay</option>
+                          <option value="scheduled">Chọn giờ</option>
+                        </select>
+                      </div>
+                    ) : (
+                      <p className="live-provider-note">
+                        Route thật từ VIETMAP · {plannerMode === 'car' ? 'ô tô' : 'xe máy'}
+                      </p>
+                    )}
+                    {plannerMode === 'transit' && departure === 'scheduled' && (
                       <label className="schedule-field">
                         Ngày và giờ khởi hành
                         <input
@@ -287,7 +357,7 @@ export default function App() {
                       <button onClick={() => window.location.reload()}>Tải lại trang</button>
                     </p>
                   )}
-                  {config?.routesMode === 'demo' && (
+                  {plannerMode === 'transit' && config?.routesMode === 'demo' && (
                     <p className="demo-notice">
                       <span />
                       Chế độ trải nghiệm · Dữ liệu minh họa
@@ -315,22 +385,41 @@ export default function App() {
                         <span>Cập nhật {time(response.generatedAt)}</span>
                       </div>
                       {response.routes.length ? (
-                        response.routes.map((item, index) => (
-                          <JourneyCard
-                            key={item.id}
-                            route={item}
-                            index={index}
-                            selected={index === selected}
-                            expanded={expanded === item.id}
-                            onSelect={() => setSelected(index)}
-                            onToggle={() => {
-                              setSelected(index);
-                              setExpanded(expanded === item.id ? undefined : item.id);
-                            }}
-                            onSave={() => void save()}
-                            saving={saving}
-                          />
-                        ))
+                        roadResponse ? (
+                          roadResponse.routes.map((item, index) => (
+                            <RoadRouteCard
+                              key={item.id}
+                              route={item}
+                              index={index}
+                              selected={index === selected}
+                              expanded={expanded === item.id}
+                              onSelect={() => setSelected(index)}
+                              onToggle={() => {
+                                setSelected(index);
+                                setExpanded(expanded === item.id ? undefined : item.id);
+                              }}
+                              onSave={() => void save()}
+                              saving={saving}
+                            />
+                          ))
+                        ) : (
+                          transitResponse?.routes.map((item, index) => (
+                            <JourneyCard
+                              key={item.id}
+                              route={item}
+                              index={index}
+                              selected={index === selected}
+                              expanded={expanded === item.id}
+                              onSelect={() => setSelected(index)}
+                              onToggle={() => {
+                                setSelected(index);
+                                setExpanded(expanded === item.id ? undefined : item.id);
+                              }}
+                              onSave={() => void save()}
+                              saving={saving}
+                            />
+                          ))
+                        )
                       ) : (
                         <div className="empty-state">
                           <Compass size={32} />
@@ -342,9 +431,11 @@ export default function App() {
                         </div>
                       )}
                       <p className="source-note">
-                        {response.source === 'google'
-                          ? 'Kết quả từ Google Maps. Lịch trình có thể thay đổi.'
-                          : 'Tuyến và thời gian chỉ để trải nghiệm giao diện, không phải lịch vận hành thực tế.'}
+                        {response.source === 'vietmap'
+                          ? 'Tuyến đường bộ và geometry từ VIETMAP. Điều kiện giao thông có thể thay đổi.'
+                          : response.source === 'google'
+                            ? 'Kết quả từ Google Maps. Lịch trình có thể thay đổi.'
+                            : 'Tuyến và thời gian chỉ để trải nghiệm giao diện, không phải lịch vận hành thực tế.'}
                       </p>
                     </>
                   ) : (
@@ -356,7 +447,11 @@ export default function App() {
                         <span />
                         <MapPin size={24} />
                       </div>
-                      <h2>Hà Nội gần hơn qua từng chặng</h2>
+                      <h2>
+                        {config?.roadProvider === 'vietmap'
+                          ? 'Tìm đường ô tô, xe máy ngay trên bản đồ'
+                          : 'Hà Nội gần hơn qua từng chặng'}
+                      </h2>
                       <p>
                         Chọn hai địa điểm để xem các tuyến, thời gian đi và điểm chuyển phương tiện.
                       </p>
@@ -434,7 +529,7 @@ export default function App() {
           </footer>
         </section>
         <section className="map-section" aria-label="Bản đồ hành trình">
-          {!config || config.routesMode === 'demo' ? (
+          {!config || plannerMode !== 'transit' || config.routesMode === 'demo' ? (
             <Suspense fallback={<p className="map-loading">Đang tải bản đồ Hà Nội…</p>}>
               <OpenMap
                 route={route}
@@ -448,7 +543,7 @@ export default function App() {
             <Suspense fallback={<p className="map-loading">Đang tải bản đồ…</p>}>
               <GoogleMap
                 apiKey={config.mapsBrowserKey}
-                route={route}
+                route={transitRoute}
                 origin={origin}
                 destination={destination}
                 onPick={pickOnMap}
@@ -462,7 +557,9 @@ export default function App() {
             <div>
               <strong>Hà Nội</strong>
               <span>
-                {config?.routesMode === 'google' ? 'Bản đồ Google' : 'OpenFreeMap · Bản đồ Hà Nội'}
+                {plannerMode === 'transit' && config?.routesMode === 'google'
+                  ? 'Bản đồ Google'
+                  : 'OpenFreeMap · Bản đồ Hà Nội'}
               </span>
             </div>
           </div>
@@ -519,17 +616,17 @@ export default function App() {
         </button>
         <h2>Đi cùng HanoiTrip</h2>
         <p>
-          Web app thực tập lập hành trình giao thông công cộng trong Hà Nội, lấy cảm hứng từ sự gọn
-          gàng của Opal.
+          Web app lập hành trình trong Hà Nội với adapter độc lập cho tìm kiếm, đường bộ và giao
+          thông công cộng.
         </p>
         <p>
-          Chế độ Google dùng Google Routes và Google Maps. Chế độ trải nghiệm dùng bản đồ thật từ
-          OpenFreeMap/OpenStreetMap, nhưng tuyến và thời gian là dữ liệu minh họa, không dùng để di
-          chuyển thực tế.
+          Đường bộ dùng VIETMAP khi môi trường đã cấu hình key server-side. Transit dùng Google hoặc
+          dữ liệu demo được gắn nhãn rõ; ứng dụng không tự đổi lỗi provider thành tuyến minh họa.
         </p>
-        <p>
-          V1 hỗ trợ một số địa danh gợi ý và tọa độ trong khu vực Hà Nội; danh sách đã lưu dùng
-          chung cho sandbox.
+        <p>Bản đồ nền dùng OpenFreeMap/OpenStreetMap. Danh sách đã lưu dùng chung cho sandbox.</p>
+        <p className="build-info">
+          Build <code>{config?.buildSha ?? 'đang tải'}</code> · Road provider{' '}
+          <code>{config?.roadProvider ?? 'unknown'}</code>
         </p>
         <button className="search-button" onClick={() => setAbout(false)}>
           Bắt đầu khám phá

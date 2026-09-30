@@ -10,6 +10,7 @@ const envSchema = z.object({
     .regex(/^[a-zA-Z0-9._-]+$/)
     .default('local-dev'),
   ROUTES_MODE: z.enum(['demo', 'google']).default('demo'),
+  ROAD_PROVIDER: z.enum(['disabled', 'vietmap']).default('disabled'),
   DB_MODE: z.enum(['memory', 'mysql']).default('memory'),
   DIAGNOSTICS_ENABLED: z
     .enum(['true', 'false'])
@@ -31,6 +32,7 @@ const envSchema = z.object({
   MYSQL_CA_FILE: z.string().optional(),
   GOOGLE_ROUTES_API_KEY: z.string().default(''),
   GOOGLE_MAPS_BROWSER_KEY: z.string().default(''),
+  VIETMAP_API_KEY: z.string().default(''),
 });
 export type Config = z.infer<typeof envSchema>;
 export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -45,6 +47,8 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
     (!config.GOOGLE_ROUTES_API_KEY || !config.GOOGLE_MAPS_BROWSER_KEY)
   )
     throw new Error('Google mode requires separate Routes and browser Maps keys');
+  if (config.ROAD_PROVIDER === 'vietmap' && !config.VIETMAP_API_KEY)
+    throw new Error('Vietmap road provider requires VIETMAP_API_KEY');
   if (config.DB_MODE === 'mysql' && !config.MYSQL_PASSWORD)
     throw new Error('MySQL password is required');
   if (config.NODE_ENV === 'production' && (config.DB_MODE !== 'mysql' || !config.MYSQL_TLS))

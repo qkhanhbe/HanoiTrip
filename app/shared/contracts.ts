@@ -23,6 +23,21 @@ export const tripSchema = z
       0.0001,
     { message: 'Điểm đi và điểm đến phải khác nhau.' },
   );
+export const roadModeSchema = z.enum(['car', 'motorcycle']);
+export const roadTripSchema = z
+  .object({
+    origin: pointSchema,
+    destination: pointSchema,
+    mode: roadModeSchema,
+  })
+  .strict()
+  .refine(
+    (value) =>
+      Math.abs(value.origin.latitude - value.destination.latitude) +
+        Math.abs(value.origin.longitude - value.destination.longitude) >
+      0.0001,
+    { message: 'Điểm đi và điểm đến phải khác nhau.' },
+  );
 export const itemSchema = z
   .object({
     label: z.string().trim().min(1).max(80),
@@ -32,6 +47,8 @@ export const itemSchema = z
   .strict();
 export type Point = z.infer<typeof pointSchema>;
 export type TripInput = z.infer<typeof tripSchema>;
+export type RoadMode = z.infer<typeof roadModeSchema>;
+export type RoadTripInput = z.infer<typeof roadTripSchema>;
 export type ItemInput = z.infer<typeof itemSchema>;
 export type Item = ItemInput & { id: string; createdAt: string };
 export type Mode = 'WALK' | 'BUS' | 'METRO' | 'TRAIN' | 'TRANSIT';
@@ -65,8 +82,46 @@ export interface RoutesResponse {
   generatedAt: string;
   routes: TripRoute[];
 }
+export interface PlaceSuggestion {
+  token: string;
+  label: string;
+  address: string;
+  distanceMeters?: number;
+}
+export interface PlaceSearchResponse {
+  source: 'vietmap';
+  suggestions: PlaceSuggestion[];
+}
+export interface PlaceResponse {
+  source: 'vietmap';
+  place: Point;
+}
+export interface RoadStep {
+  instruction: string;
+  streetName: string;
+  durationSeconds: number;
+  distanceMeters: number;
+}
+export interface RoadRoute {
+  id: string;
+  mode: RoadMode;
+  durationSeconds: number;
+  distanceMeters: number;
+  geometry: {
+    type: 'LineString';
+    coordinates: [number, number][];
+  };
+  steps: RoadStep[];
+}
+export interface RoadRoutesResponse {
+  source: 'vietmap';
+  generatedAt: string;
+  routes: RoadRoute[];
+}
 export interface PublicConfig {
   routesMode: 'demo' | 'google';
+  roadProvider: 'disabled' | 'vietmap';
   mapsBrowserKey: string;
   storage: 'memory' | 'mysql';
+  buildSha: string;
 }
