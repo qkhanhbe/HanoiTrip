@@ -60,6 +60,20 @@ Workflow CD vẫn còn các điểm phải kiểm chứng trước khi bật:
 Tài liệu chính thức: [GitHub OIDC với Azure](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-azure), [Azure CLI sitecontainers](https://learn.microsoft.com/cli/azure/webapp/sitecontainers) và [App Service slot swap](https://learn.microsoft.com/azure/app-service/deploy-staging-slots).
 Chưa thay đổi quyền/ruleset/environment trên GitHub hoặc Azure trong bước này.
 
+Bootstrap OIDC idempotent không tạo client secret và luôn giữ ba cờ deploy/review/
+swap ở `false`:
+
+```bash
+GITHUB_OIDC_CONFIRM=qkhanhbe/HanoiTrip:azure-sandbox \
+bash scripts/release/configure-github-oidc.sh
+```
+
+Script giới hạn federated subject theo GitHub environment, chỉ cho nhánh `main` dùng
+environment, cấp quyền theo từng Web App/MySQL/Key Vault/ACR và lưu ba ID OIDC dưới
+dạng environment secrets. Chạy script chưa phải là bật CD; sau đó vẫn phải audit
+variables, thử OIDC read-only, xử lý drift Portal/Terraform và review cleanup trước
+khi đổi hai cờ `AZURE_CD_ENABLED`/`AZURE_CD_CONFIG_REVIEWED`.
+
 Job `container-check` trên PR build image trong step riêng, Compose smoke dùng `--no-build`, rồi scan cùng image. Xem [kiểm thử](testing.md) và [known issues](../known-issues.md) để phân biệt kết quả local với phần còn cần kiểm chứng.
 
 Workflow hoạt động nằm trong `.github/workflows/`: `source-scan.yml` và `ci.yml` chạy trên PR vào `main`; `cd.yml` chạy sau push `main` nhưng deploy job mặc định bị khóa bằng `AZURE_CD_ENABLED` cho tới khi Azure/OIDC sẵn sàng. Không duy trì thêm một bộ workflow nháp song song để tránh cấu hình lệch nhau.

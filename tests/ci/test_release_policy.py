@@ -63,6 +63,19 @@ class ReleasePolicyTests(unittest.TestCase):
         configured = subprocess.run(command, env=environment, capture_output=True, text=True)
         self.assertEqual(configured.returncode, 0, configured.stderr)
 
+    def test_oidc_bootstrap_is_environment_scoped_and_keeps_cd_disabled(self):
+        script = (ROOT / "scripts/release/configure-github-oidc.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('expected_subject="repo:${repo}:environment:${environment}"', script)
+        self.assertIn("api://AzureADTokenExchange", script)
+        self.assertNotIn("az ad app credential reset", script)
+        self.assertNotIn("client-secret", script)
+        self.assertIn("set_variable AZURE_CD_ENABLED false", script)
+        self.assertIn("set_variable AZURE_CD_CONFIG_REVIEWED false", script)
+        self.assertIn("set_variable AZURE_PRODUCTION_SWAP_ENABLED false", script)
+        self.assertNotIn('ensure_role Contributor "$resource_group', script)
+
     def test_staging_updates_the_existing_sitecontainer_without_mode_conversion(self):
         self.assertIn("--query linuxFxVersion", self.workflow)
         self.assertIn('if [ "$container_mode" != "sitecontainers" ]', self.workflow)
