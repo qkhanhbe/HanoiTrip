@@ -144,7 +144,7 @@ Không có lockfile/source/IaC có thể tạo report trống hợp lệ. Khi ap
 
 - Source scan chạy khi PR mở/cập nhật/mở lại/ready-for-review vào `main`, không có path filter bỏ sót check. Cập nhật PR hủy run cũ của chính PR đó.
 - Chỉ `contents: read`, không Azure credentials/OIDC, không quyền comment hoặc push. Checkout không lưu credential. Scan repo mount read-only, artifacts ở thư mục riêng.
-- GitHub Actions pin commit SHA. Scanner pin tag + Linux/amd64 digest trong `scan-source.sh`; thay phiên bản phải review cả tag và digest.
+- GitHub Actions pin commit SHA. Các JavaScript action dùng release chạy trên Node 24; đây là runtime nội bộ của action, độc lập với Node 22.23.2 dùng để build/test HanoiTrip. Scanner pin tag + Linux/amd64 digest trong `scan-source.sh`; thay phiên bản phải review cả tag và digest.
 - Runner tải container, vulnerability DB, IaC checks và Semgrep rules. Nếu mạng công ty chặn, dùng runner/mirror được cấp hoặc ghi blocker; chưa giả định máy intern truy cập được registry nội bộ.
 - Fork PR có thể cần chủ repo cho phép chạy theo cấu hình GitHub. Nếu dùng merge queue sau này, bổ sung `merge_group` và cập nhật policy trigger/ruleset.
 - Không có job upload DefectDojo/Dependency-Track. Artifact lưu 7 ngày; không echo nội dung secret trong summary.

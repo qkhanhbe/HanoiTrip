@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+import re
 import subprocess
 import unittest
 
@@ -11,6 +12,35 @@ class ReleasePolicyTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.workflow = (ROOT / ".github/workflows/cd.yml").read_text(encoding="utf-8")
+        cls.workflows = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in sorted((ROOT / ".github/workflows").glob("*.yml"))
+        )
+
+    def test_actions_are_immutable_and_node24_capable(self):
+        uses = re.findall(r"uses:\s+([^\s#]+)", self.workflows)
+        remote_actions = [action for action in uses if not action.startswith("./")]
+        for action in remote_actions:
+            with self.subTest(action=action):
+                self.assertRegex(action, r"^[^@]+@[0-9a-f]{40}$")
+
+        expected_node24_actions = (
+            "actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10",
+            "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+            "actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f",
+            "Azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906",
+        )
+        for action in expected_node24_actions:
+            self.assertIn(action, self.workflows)
+
+        deprecated_node20_actions = (
+            "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+            "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+            "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+            "Azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6",
+        )
+        for action in deprecated_node20_actions:
+            self.assertNotIn(action, self.workflows)
 
     def test_only_main_can_enter_deploy_job(self):
         self.assertIn("branches: [main]", self.workflow)
