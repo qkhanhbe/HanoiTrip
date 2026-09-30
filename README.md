@@ -2,7 +2,7 @@
 
 Ứng dụng lập hành trình tại Hà Nội với React/TypeScript, Fastify và MySQL. Một Docker image phục vụ cả frontend và API.
 
-Bản đồ OpenFreeMap/OpenStreetMap là dữ liệu thật; tuyến và thời gian trong chế độ `demo` là minh họa. Favorites hiện dùng chung trong sandbox, chưa có tài khoản cá nhân. Adapter Google Routes/Maps đã có code; cần cấu hình key và kiểm chứng live trước khi sử dụng.
+Bản đồ OpenFreeMap/OpenStreetMap là dữ liệu thật; tuyến và thời gian trong chế độ `demo` là minh họa. Favorites hiện dùng chung trong sandbox, chưa có tài khoản cá nhân. Adapter Google transit và VIETMAP Search/Place/Road đã có code; mỗi adapter chỉ được coi là live sau khi có key server-side và kiểm chứng provider thật.
 
 ## Chạy local
 
@@ -34,6 +34,8 @@ Các biến được mô tả trong [.env.example](.env.example); không commit 
 | `MYSQL_SOCKET_PATH` | Unix socket khi chạy local cần thay TCP |
 | `ROUTES_MODE` | `demo` hoặc `google` |
 | `GOOGLE_ROUTES_API_KEY`, `GOOGLE_MAPS_BROWSER_KEY` | Key server và browser riêng khi dùng Google |
+| `ROAD_PROVIDER` | `disabled` hoặc `vietmap`; mặc định tắt |
+| `VIETMAP_API_KEY` | Key Search/Place/Route v4 chỉ ở server/Key Vault, không trả cho browser |
 | `BUILD_SHA` | SHA/version bất biến cho production |
 | `DIAGNOSTICS_ENABLED` | Bật endpoint chẩn đoán có giới hạn; mặc định tắt |
 
@@ -46,10 +48,13 @@ Các biến được mô tả trong [.env.example](.env.example); không commit 
 | `GET /items` | Liệt kê favorites; hỗ trợ limit/offset |
 | `POST /items` | Lưu tên và tọa độ điểm đi/đến |
 | `POST /routes` | Tìm route demo hoặc gọi Google Routes |
+| `GET /v1/search` | Gợi ý địa điểm; trả token ký ngắn hạn thay cho provider ref thô |
+| `POST /v1/places/resolve` | Đổi token đã chọn thành địa điểm canonical trong service area |
+| `POST /v1/routes/road` | Route thật `car`/`motorcycle`, geometry GeoJSON `[lon, lat]` |
 | `GET /config` | Cấu hình công khai cho frontend |
 | `GET /boom`, `GET /load` | Chẩn đoán có giới hạn; mặc định tắt |
 
-Migration là lệnh riêng. Logs gồm request ID, build SHA, status và duration; không ghi password hay request body.
+Ba endpoint v1 chỉ hoạt động khi `ROAD_PROVIDER=vietmap`; không có key thì trả lỗi rõ ràng, không fallback sang demo. Migration là lệnh riêng. Logs gồm request ID, build SHA, status và duration; không ghi password, API key, query hay request body.
 
 ## Cấu trúc repo
 

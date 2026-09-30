@@ -30,7 +30,9 @@ describe('HTTP contracts', () => {
     expect((await app.inject('/health')).json()).toEqual({ status: 'ok', database: 'memory' });
     expect((await app.inject('/version')).json().buildSha).toBe('test-sha');
     expect(Object.keys((await app.inject('/config')).json()).sort()).toEqual([
+      'buildSha',
       'mapsBrowserKey',
+      'roadProvider',
       'routesMode',
       'storage',
     ]);
@@ -114,6 +116,68 @@ describe('HTTP contracts', () => {
         })
       ).statusCode,
     ).toBe(400);
+  });
+  it('keeps v1 road features explicitly unavailable until a provider is configured', async () => {
+    await setup();
+    expect((await app.inject('/v1/search?q=van%20mieu')).statusCode).toBe(503);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/v1/routes/road',
+          payload: { ...input, mode: 'car' },
+        })
+      ).statusCode,
+    ).toBe(503);
+  });
+  it('validates and delegates v1 place and road contracts', async () => {
+    const placesProvider = {
+      search: vi.fn(async () => ({ source: 'vietmap' as const, suggestions: [] })),
+      resolve: vi.fn(async () => ({ source: 'vietmap' as const, place: input.origin })),
+    };
+    const roadRoutes = vi.fn(async () => ({
+      source: 'vietmap' as const,
+      generatedAt: '2026-09-30T03:00:00.000Z',
+      routes: [],
+    }));
+    await setup({
+      repository: new MemoryRepository(),
+      routes: demoProvider,
+      places: placesProvider,
+      roadRoutes,
+    });
+    expect((await app.inject('/v1/search?q=a')).statusCode).toBe(400);
+    expect((await app.inject('/v1/search?q=van%20mieu&focusLat=21')).statusCode).toBe(400);
+    expect((await app.inject('/v1/search?q=van%20mieu')).statusCode).toBe(200);
+    expect(placesProvider.search).toHaveBeenCalledWith('van mieu', undefined);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/v1/places/resolve',
+          payload: { token: 'signed-token' },
+        })
+      ).json().place,
+    ).toEqual(input.origin);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/v1/routes/road',
+          payload: { ...input, mode: 'bicycle' },
+        })
+      ).statusCode,
+    ).toBe(400);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/v1/routes/road',
+          payload: { ...input, mode: 'motorcycle' },
+        })
+      ).statusCode,
+    ).toBe(200);
+    expect(roadRoutes).toHaveBeenCalledWith({ ...input, mode: 'motorcycle' });
   });
   it('fails readiness and reads/writes when DB is unavailable, without leaking driver error', async () => {
     const repository = new MemoryRepository();
@@ -204,6 +268,7 @@ describe('HTTP contracts', () => {
 describe('configuration safeguards', () => {
   it('requires separate live keys and verified production DB TLS', () => {
     expect(() => readConfig({ ROUTES_MODE: 'google' })).toThrow('separate');
+    expect(() => readConfig({ ROAD_PROVIDER: 'vietmap' })).toThrow('VIETMAP_API_KEY');
     expect(() => readConfig({ NODE_ENV: 'production' })).toThrow('verified TLS');
     expect(() => readConfig({ DB_MODE: 'mysql' })).toThrow('password');
     expect(() => readConfig({ PORT: '0' })).toThrow('PORT');

@@ -31,7 +31,13 @@ beforeEach(() => {
   fetchMock = vi.fn<typeof fetch>();
   fetchMock.mockImplementation(async (url, options) => {
     if (url === '/config')
-      return Response.json({ routesMode: 'demo', mapsBrowserKey: '', storage: 'memory' });
+      return Response.json({
+        routesMode: 'demo',
+        roadProvider: 'disabled',
+        mapsBrowserKey: '',
+        storage: 'memory',
+        buildSha: 'test-sha',
+      });
     if (url === '/routes')
       return Response.json(await demoProvider(JSON.parse(String(options?.body))));
     if (url === '/items') return Response.json({ id: 'saved' }, { status: 201 });
@@ -76,6 +82,78 @@ it('keeps input focused while typing and supports keyboard landmark selection', 
   await user.keyboard('{Enter}');
   expect(input).toHaveValue(places[1].label);
 });
+it('searches a real place and requests a VIETMAP car route without demo fallback', async () => {
+  fetchMock.mockImplementation(async (url, _options) => {
+    if (url === '/config')
+      return Response.json({
+        routesMode: 'demo',
+        roadProvider: 'vietmap',
+        mapsBrowserKey: '',
+        storage: 'memory',
+        buildSha: 'release-b-test',
+      });
+    if (String(url).startsWith('/v1/search'))
+      return Response.json({
+        source: 'vietmap',
+        suggestions: [
+          {
+            token: 'signed-place-token',
+            label: 'Đại học Bách khoa Hà Nội',
+            address: 'Hai Bà Trưng, Hà Nội',
+          },
+        ],
+      });
+    if (url === '/v1/places/resolve')
+      return Response.json({
+        source: 'vietmap',
+        place: {
+          label: 'Đại học Bách khoa Hà Nội',
+          latitude: 21.005,
+          longitude: 105.843,
+        },
+      });
+    if (url === '/v1/routes/road')
+      return Response.json({
+        source: 'vietmap',
+        generatedAt: '2026-09-30T03:00:00.000Z',
+        routes: [
+          {
+            id: 'vietmap-car-0',
+            mode: 'car',
+            durationSeconds: 720,
+            distanceMeters: 4100,
+            geometry: {
+              type: 'LineString',
+              coordinates: [
+                [105.843, 21.005],
+                [105.81, 21.03],
+              ],
+            },
+            steps: [],
+          },
+        ],
+      });
+    return Response.json([]);
+  });
+  const user = userEvent.setup();
+  render(<App />);
+  const car = await screen.findByRole('button', { name: 'Ô tô' });
+  expect(car).toBeEnabled();
+  await user.click(car);
+  const origin = screen.getByRole('combobox', { name: 'Điểm đi' });
+  await user.clear(origin);
+  await user.type(origin, 'bach khoa');
+  await user.click(await screen.findByText('Đại học Bách khoa Hà Nội'));
+  expect(origin).toHaveValue('Đại học Bách khoa Hà Nội');
+  await user.click(screen.getByRole('button', { name: 'Tìm hành trình' }));
+  expect(await screen.findByRole('article', { name: 'Phương án đường bộ 1' })).toBeInTheDocument();
+  const roadCall = fetchMock.mock.calls.find(([url]) => url === '/v1/routes/road');
+  expect(JSON.parse(String(roadCall?.[1]?.body))).toMatchObject({
+    mode: 'car',
+    origin: { label: 'Đại học Bách khoa Hà Nội' },
+  });
+  expect(screen.getByText(/Tuyến đường bộ và geometry từ VIETMAP/)).toBeInTheDocument();
+});
 it('lets users choose an endpoint from the interactive demo map', async () => {
   const user = userEvent.setup();
   render(<App />);
@@ -90,7 +168,13 @@ it('lets users choose an endpoint from the interactive demo map', async () => {
 it('shows real request errors and allows retry rather than inventing routes', async () => {
   fetchMock.mockImplementation(async (url) =>
     url === '/config'
-      ? Response.json({ routesMode: 'demo', mapsBrowserKey: '', storage: 'memory' })
+      ? Response.json({
+          routesMode: 'demo',
+          roadProvider: 'disabled',
+          mapsBrowserKey: '',
+          storage: 'memory',
+          buildSha: 'test-sha',
+        })
       : Response.json(
           { error: { message: 'Nguồn tạm dừng', requestId: 'test-id' } },
           { status: 502 },
@@ -107,7 +191,13 @@ it('shows real request errors and allows retry rather than inventing routes', as
 it('reopens saved endpoints without reusing obsolete route data', async () => {
   fetchMock.mockImplementation(async (url) =>
     url === '/config'
-      ? Response.json({ routesMode: 'demo', mapsBrowserKey: '', storage: 'mysql' })
+      ? Response.json({
+          routesMode: 'demo',
+          roadProvider: 'disabled',
+          mapsBrowserKey: '',
+          storage: 'mysql',
+          buildSha: 'test-sha',
+        })
       : Response.json([
           {
             id: 'one',

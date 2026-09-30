@@ -27,13 +27,17 @@ locals {
     MYSQL_PASSWORD      = "@Microsoft.KeyVault(VaultName=${local.key_vault_name};SecretName=mysql-admin-password)"
     MYSQL_TLS           = "true"
     ROUTES_MODE         = var.routes_mode
+    ROAD_PROVIDER       = var.road_provider
     DIAGNOSTICS_ENABLED = "false"
   }
   google_app_settings = var.routes_mode == "google" ? {
     GOOGLE_ROUTES_API_KEY   = "@Microsoft.KeyVault(VaultName=${local.key_vault_name};SecretName=google-routes-api-key)"
     GOOGLE_MAPS_BROWSER_KEY = "@Microsoft.KeyVault(VaultName=${local.key_vault_name};SecretName=google-maps-browser-key)"
   } : {}
-  app_settings = merge(local.common_app_settings, local.google_app_settings)
+  vietmap_app_settings = var.road_provider == "vietmap" ? {
+    VIETMAP_API_KEY = "@Microsoft.KeyVault(VaultName=${local.key_vault_name};SecretName=vietmap-api-key)"
+  } : {}
+  app_settings = merge(local.common_app_settings, local.google_app_settings, local.vietmap_app_settings)
 }
 
 resource "azurerm_resource_group" "app" {

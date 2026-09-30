@@ -10,7 +10,7 @@ import {
 } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import type { Point, TripRoute } from '../shared/contracts';
+import type { Point, RoadRoute, TripRoute } from '../shared/contracts';
 import { serviceArea } from '../shared/geo';
 
 const STYLE = 'https://tiles.openfreemap.org/styles/liberty';
@@ -26,7 +26,7 @@ export default function OpenMap({
   pickTarget,
   onPick,
 }: {
-  route?: TripRoute;
+  route?: TripRoute | RoadRoute;
   origin: Point | null;
   destination: Point | null;
   pickTarget: 'origin' | 'destination';
@@ -96,18 +96,18 @@ export default function OpenMap({
           ]);
         }
       }
-      instance.addSource('demo-route', { type: 'geojson', data: EMPTY_ROUTE });
+      instance.addSource('planner-route', { type: 'geojson', data: EMPTY_ROUTE });
       instance.addLayer({
-        id: 'demo-route-outline',
+        id: 'planner-route-outline',
         type: 'line',
-        source: 'demo-route',
+        source: 'planner-route',
         layout: { 'line-join': 'round', 'line-cap': 'round' },
         paint: { 'line-color': '#fffaf0', 'line-width': 9 },
       });
       instance.addLayer({
-        id: 'demo-route-line',
+        id: 'planner-route-line',
         type: 'line',
-        source: 'demo-route',
+        source: 'planner-route',
         layout: { 'line-join': 'round', 'line-cap': 'round' },
         paint: { 'line-color': '#c94f38', 'line-width': 5, 'line-dasharray': [2, 1.5] },
       });
@@ -149,10 +149,14 @@ export default function OpenMap({
       marker.setAttribute('aria-label', marker.title);
       markers.push(new Marker({ element: marker }).setLngLat(position).addTo(instance));
     });
-    // Google polylines stay on Google Maps; this layer only accepts explicitly fictional paths.
-    const path = route?.demoPath?.map(({ lat, lng }): [number, number] => [lng, lat]) ?? [];
+    // Google polylines stay on Google Maps. Road geometry is already canonical GeoJSON lon/lat.
+    const path: [number, number][] = route
+      ? 'geometry' in route
+        ? route.geometry.coordinates
+        : (route.demoPath?.map(({ lat, lng }): [number, number] => [lng, lat]) ?? [])
+      : [];
     path.forEach((point) => bounds.extend(point));
-    (instance.getSource('demo-route') as GeoJSONSource).setData(
+    (instance.getSource('planner-route') as GeoJSONSource).setData(
       path.length > 1
         ? {
             type: 'Feature',
@@ -160,6 +164,11 @@ export default function OpenMap({
             geometry: { type: 'LineString', coordinates: path },
           }
         : EMPTY_ROUTE,
+    );
+    instance.setPaintProperty(
+      'planner-route-line',
+      'line-dasharray',
+      route && 'geometry' in route ? [1, 0] : [2, 1.5],
     );
     if (!bounds.isEmpty()) {
       const mobile = instance.getContainer().clientWidth < 600;
@@ -219,9 +228,11 @@ export default function OpenMap({
         </button>
       </div>
       <span className="open-map-crosshair" aria-hidden="true" />
-      {route?.demoPath && (
+      {route && 'demoPath' in route && route.demoPath ? (
         <span className="open-map-demo-label">Nét đứt: tuyến minh họa, không dùng chỉ đường</span>
-      )}
+      ) : route && 'geometry' in route ? (
+        <span className="open-map-demo-label real-route-label">Tuyến đường bộ thật · VIETMAP</span>
+      ) : null}
     </div>
   );
 }

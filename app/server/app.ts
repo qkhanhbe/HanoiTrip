@@ -7,15 +7,18 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import staticPlugin from '@fastify/static';
 import { z, ZodError } from 'zod';
-import { itemSchema, tripSchema } from '../shared/contracts.js';
+import { itemSchema, roadTripSchema, tripSchema } from '../shared/contracts.js';
 import type { Config } from './config.js';
 import type { ItemRepository } from './repository.js';
 import type { RoutesProvider } from './routes-provider.js';
 import { AppError } from './errors.js';
+import type { PlaceProvider, RoadRoutingProvider } from './vietmap-provider.js';
 
 interface Dependencies {
   repository: ItemRepository;
   routes: RoutesProvider;
+  places?: PlaceProvider;
+  roadRoutes?: RoadRoutingProvider;
   logger?: boolean;
   logStream?: NodeJS.WritableStream;
   load?: (seconds: number) => Promise<unknown>;
@@ -152,9 +155,59 @@ export async function createApp(config: Config, deps: Dependencies) {
   }));
   app.get('/config', async () => ({
     routesMode: config.ROUTES_MODE,
+    roadProvider: config.ROAD_PROVIDER,
     mapsBrowserKey: config.GOOGLE_MAPS_BROWSER_KEY,
     storage: config.DB_MODE,
+    buildSha: config.BUILD_SHA,
   }));
+  const requirePlaces = () => {
+    if (!deps.places)
+      throw new AppError(503, 'FEATURE_UNAVAILABLE', 'Tìm kiếm địa điểm thật chưa được cấu hình.');
+    return deps.places;
+  };
+  app.get(
+    '/v1/search',
+    { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
+    async (request) => {
+      const query = z
+        .object({
+          q: z.string().trim().min(2).max(100),
+          focusLat: z.coerce.number().min(20.8).max(21.3).optional(),
+          focusLng: z.coerce.number().min(105.5).max(106.05).optional(),
+        })
+        .strict()
+        .refine((value) => (value.focusLat === undefined) === (value.focusLng === undefined), {
+          message: 'focusLat và focusLng phải được gửi cùng nhau.',
+        })
+        .parse(request.query);
+      return requirePlaces().search(
+        query.q,
+        query.focusLat === undefined
+          ? undefined
+          : { latitude: query.focusLat, longitude: query.focusLng! },
+      );
+    },
+  );
+  app.post(
+    '/v1/places/resolve',
+    { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+    async (request) => {
+      const { token } = z
+        .object({ token: z.string().min(1).max(4096) })
+        .strict()
+        .parse(request.body);
+      return requirePlaces().resolve(token);
+    },
+  );
+  app.post(
+    '/v1/routes/road',
+    { config: { rateLimit: { max: 15, timeWindow: '1 minute' } } },
+    async (request) => {
+      if (!deps.roadRoutes)
+        throw new AppError(503, 'FEATURE_UNAVAILABLE', 'Tìm đường bộ thật chưa được cấu hình.');
+      return deps.roadRoutes(roadTripSchema.parse(request.body));
+    },
+  );
   app.get('/items', async (request) => {
     const query = z
       .object({

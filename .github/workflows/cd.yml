@@ -48,6 +48,7 @@ jobs:
       KEY_VAULT_NAME: ${{ vars.AZURE_KEY_VAULT }}
       IMAGE_REPOSITORY: hanoitrip
       SLOT_NAME: staging
+      REQUIRE_ROAD_PROVIDER: ${{ vars.AZURE_RELEASE_REQUIRE_ROAD_PROVIDER }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -110,12 +111,26 @@ jobs:
           az webapp config appsettings set --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" --slot "$SLOT_NAME" \
             --settings "BUILD_SHA=$GITHUB_SHA" >/dev/null
           az webapp restart --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" --slot "$SLOT_NAME"
+          staging_host=$(az webapp show --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
+            --slot "$SLOT_NAME" --query defaultHostName --output tsv)
+          test -n "$staging_host"
+          staging_base="https://$staging_host"
           node scripts/release/poll-version.mjs \
-            --url "https://$WEBAPP_NAME-$SLOT_NAME.azurewebsites.net" --expected "$GITHUB_SHA" \
+            --url "$staging_base" --expected "$GITHUB_SHA" \
             --timeout 240 --output "$RUNNER_TEMP/staging-version.jsonl"
+          BASE_URL="$staging_base" \
+            EXPECTED_SHA="$GITHUB_SHA" npm run smoke
+          if [ "$REQUIRE_ROAD_PROVIDER" = "true" ]; then
+            BASE_URL="$staging_base" \
+              EXPECTED_SHA="$GITHUB_SHA" SMOKE_ROAD=1 npm run smoke
+          fi
       - name: Swap while observing production
+        if: ${{ vars.AZURE_PRODUCTION_SWAP_ENABLED == 'true' }}
         run: |
-          production="https://$WEBAPP_NAME.azurewebsites.net"
+          production_host=$(az webapp show --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
+            --query defaultHostName --output tsv)
+          test -n "$production_host"
+          production="https://$production_host"
           old_sha=$(curl --fail --silent --show-error "$production/version" | node -pe 'JSON.parse(fs.readFileSync(0)).buildSha')
           test "$old_sha" != "$GITHUB_SHA"
           node scripts/release/poll-version.mjs --url "$production" --expected "$GITHUB_SHA" \
@@ -136,6 +151,11 @@ jobs:
               --timeout 240 --output "$RUNNER_TEMP/rollback.jsonl"
             exit 1
           fi
+      - name: Report staging-only release
+        if: ${{ vars.AZURE_PRODUCTION_SWAP_ENABLED != 'true' }}
+        run: |
+          echo "Image $GITHUB_SHA passed staging gates and was not swapped to production." >> "$GITHUB_STEP_SUMMARY"
+          echo "Set AZURE_PRODUCTION_SWAP_ENABLED=true only after release approval and rollback readiness." >> "$GITHUB_STEP_SUMMARY"
       - name: Preserve release evidence
         if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

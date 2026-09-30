@@ -8,6 +8,7 @@
 - Terraform plan job chỉ tạo artifact khi OIDC/backend được cấu hình; run hiện tại chỉ có fmt/validate.
 - Dashboard, KQL schema, email action group và alert thật chưa được kích hoạt. Không bật Application Insights do yêu cầu monitoring hiện ghi rõ không dùng.
 - Google Routes/Google Maps live chưa có key và chưa test coverage transit Hà Nội; UI đang ghi rõ route demo.
+- VIETMAP adapter và contract tests đã có nhưng chưa có dev key/quota evidence, chưa chạy live Search/Place/Route hoặc xác minh điều khoản cache/attribution. `ROAD_PROVIDER` phải giữ `disabled` ở Azure cho tới khi gate này pass.
 
 ## Gap đã biết
 
