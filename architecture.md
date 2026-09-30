@@ -23,10 +23,10 @@ MySQL chỉ allow outbound IP của hai slot và IP runner tạm trong lúc migr
 
 ```mermaid
 flowchart LR
-    ProdMI[Production system-assigned MI] -->|AcrPull| ACR[Azure Container Registry]
-    StageMI[Staging system-assigned MI] -->|AcrPull| ACR
-    ProdMI -->|Get secret| KV[Key Vault]
-    StageMI -->|Get secret| KV
+    AppMI[Shared user-assigned MI] -->|AcrPull| ACR[Azure Container Registry]
+    AppMI -->|Get secret| KV[Key Vault]
+    AppMI --> Prod[Production slot]
+    AppMI --> Stage[Staging slot]
     KV -->|Key Vault reference| Settings[App settings]
     Deploy[GitHub deploy OIDC identity] -->|AcrPush + scoped deploy role| Azure[Resource group]
     Plan[GitHub plan OIDC identity] -->|read + state data plane| State[(Terraform Blob state)]

@@ -14,9 +14,18 @@ output "deployment" {
 }
 
 output "app_principal_id" {
-  value = azurerm_linux_web_app.app.identity[0].principal_id
+  value = azurerm_user_assigned_identity.app.principal_id
 }
 
 output "staging_principal_id" {
-  value = azurerm_linux_web_app_slot.staging.identity[0].principal_id
+  value = azurerm_user_assigned_identity.app.principal_id
+}
+
+output "app_identity" {
+  value = {
+    name         = azurerm_user_assigned_identity.app.name
+    resource_id  = azurerm_user_assigned_identity.app.id
+    client_id    = azurerm_user_assigned_identity.app.client_id
+    principal_id = azurerm_user_assigned_identity.app.principal_id
+  }
 }

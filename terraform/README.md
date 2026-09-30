@@ -2,6 +2,12 @@
 
 `bootstrap/` creates the Azure Blob backend once. `app/` creates the application stack. The split prevents `terraform destroy` for the app from deleting its own state.
 
+> Safety: the current live sandbox was created before this state existed. Do not
+> point `terraform/app` at that resource group or run `apply` against it until
+> every live resource has been imported and a reviewed plan shows no destructive
+> replacement. The default configuration is a separate greenfield stack with a
+> random suffix.
+
 ```bash
 terraform -chdir=terraform/bootstrap init
 terraform -chdir=terraform/bootstrap apply \
@@ -20,7 +26,36 @@ Do not commit `backend.hcl`, `terraform.tfvars`, plans, state, credentials or re
 
 Set `mysql_secret_expiration_date` to an RFC 3339 timestamp and rotate the generated password before that date. GitHub Terraform plans receive the same value from the repository variable `AZURE_MYSQL_SECRET_EXPIRATION_DATE`; keep `AZURE_TERRAFORM_PLAN_ENABLED` disabled until the OIDC identity, backend settings and all required variables have been reviewed.
 
-`initial_image` only lets the web resources exist before the first release. CD owns later image/SHA settings and replaces it with `hanoitrip:<git-sha>`; Terraform ignores those release-managed fields. Run the additive database migration before slot health verification. Destroy the app stack after evidence collection; keep the backend until its state is no longer needed.
+`initial_image` only lets the web resources exist before the first release. The
+App Service and staging slot share one user-assigned identity for ACR pull and
+Key Vault references. AzureRM manages the app lifecycle; AzAPI manages the
+`sitecontainers` mode and its `main` child because AzureRM does not expose that
+resource yet. CD owns the later immutable image/SHA and container authentication,
+so Terraform intentionally ignores changes to the child container body. Run the
+additive database migration before slot health verification. Destroy the app
+stack after evidence collection; keep the backend until its state is no longer
+needed.
+
+## Existing sandbox adoption
+
+The live resource group currently has no matching Terraform state. Adoption is
+a migration, not a normal apply:
+
+1. Bootstrap the remote backend and grant the plan/deploy identities only the
+   required state permissions.
+2. Make live names configurable or move the live workload to a Terraform-created
+   greenfield stack.
+3. Import the resource group, ACR, plan, user-assigned identity, web app, slot,
+   both `sitecontainers/main` children, Key Vault, MySQL resources, role
+   assignments, firewall rules and monitoring resources.
+4. Review a refresh-only plan, then a normal plan. A replacement of MySQL, Key
+   Vault, App Service or the production container is a stop condition.
+5. Only after a zero-change baseline exists may Terraform become the owner of
+   subsequent infrastructure changes.
+
+Importing the manually created stack alone does not satisfy M8. The required
+evidence is still a logged, unattended `destroy` followed by `apply`, application
+health/database checks, and a lock-contention demonstration.
 
 Local validation without Azure:
 

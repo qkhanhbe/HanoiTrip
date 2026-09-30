@@ -152,7 +152,25 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertIn("az webapp sitecontainers show", self.workflow)
         self.assertIn("az webapp sitecontainers update", self.workflow)
         self.assertIn("--container-name main --image \"$IMAGE\"", self.workflow)
+        self.assertIn("az webapp identity show", self.workflow)
+        self.assertIn("--user-assigned-identity \"$acr_pull_client_id\"", self.workflow)
         self.assertNotIn("az webapp config container set", self.workflow)
+
+    def test_terraform_models_sitecontainers_and_shared_user_identity(self):
+        app = (ROOT / "terraform/app/main.tf").read_text(encoding="utf-8")
+        versions = (ROOT / "terraform/app/versions.tf").read_text(encoding="utf-8")
+        self.assertIn('source  = "Azure/azapi"', versions)
+        self.assertIn('resource "azurerm_user_assigned_identity" "app"', app)
+        self.assertIn('type         = "UserAssigned"', app)
+        self.assertIn('rbac_authorization_enabled    = true', app)
+        self.assertIn(
+            'type      = "Microsoft.Web/sites/sitecontainers@2024-04-01"', app
+        )
+        self.assertIn(
+            'type      = "Microsoft.Web/sites/slots/sitecontainers@2024-04-01"',
+            app,
+        )
+        self.assertNotIn("azurerm_key_vault_access_policy", app)
 
     def test_release_image_scan_uses_the_reviewed_expiring_exception_file(self):
         marker = "- name: Build, scan and push immutable image"
