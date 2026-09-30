@@ -28,7 +28,9 @@ class ReleasePolicyTests(unittest.TestCase):
             "actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10",
             "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
             "actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f",
+            "actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131",
             "Azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906",
+            "hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e",
         )
         for action in expected_node24_actions:
             self.assertIn(action, self.workflows)
@@ -37,7 +39,9 @@ class ReleasePolicyTests(unittest.TestCase):
             "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
             "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
             "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+            "actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093",
             "Azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6",
+            "hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd",
         )
         for action in deprecated_node20_actions:
             self.assertNotIn(action, self.workflows)
