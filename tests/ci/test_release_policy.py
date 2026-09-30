@@ -100,6 +100,9 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertIn("set_variable AZURE_CD_OIDC_PROBE_ENABLED true", script)
         self.assertIn("set_variable AZURE_PRODUCTION_SWAP_ENABLED false", script)
         self.assertNotIn('ensure_role Contributor "$resource_group', script)
+        self.assertIn('ensure_role Reader "$acr_id"', script)
+        self.assertIn('ensure_role AcrPush "$acr_id"', script)
+        self.assertNotIn('ensure_role Contributor "$acr_id"', script)
 
     def test_staging_updates_the_existing_sitecontainer_without_mode_conversion(self):
         self.assertIn("--query linuxFxVersion", self.workflow)

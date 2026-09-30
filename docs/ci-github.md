@@ -72,7 +72,8 @@ Script lấy immutable owner/repository ID từ GitHub API và giới hạn fede
 theo đúng repository cùng GitHub environment. Nó chỉ tự động thay credential khi
 subject hiện tại khớp chính xác mẫu legacy `repo:owner/name:environment:...`; subject
 lạ làm script dừng. Environment chỉ cho nhánh `main` dùng. Quyền được cấp theo từng
-Web App/MySQL/Key Vault/ACR và ba ID OIDC được lưu dưới dạng environment secrets.
+Web App/MySQL/Key Vault/ACR; riêng ACR dùng `Reader` cho metadata và `AcrPush` cho
+image, không cấp ACR Contributor/Tasks. Ba ID OIDC được lưu dạng environment secrets.
 Chạy script chưa phải là bật CD; sau đó vẫn phải audit variables.
 `AZURE_CD_OIDC_PROBE_ENABLED=true` chỉ cho phép job main đăng nhập và đọc metadata
 bốn tài nguyên, không build/deploy/restart. Sau khi probe pass, đặt lại false, xử lý
