@@ -7,7 +7,17 @@ COPY app ./app
 COPY public ./public
 RUN npm run build && npm prune --omit=dev
 
+FROM debian@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a AS runtime-security
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends --only-upgrade -y libssl3t64=3.5.7-1~deb13u3 \
+    && mkdir -p /patched-dpkg \
+    && dpkg-query -s libssl3t64 > /patched-dpkg/libssl3t64 \
+    && rm -rf /var/lib/apt/lists/*
+
 FROM gcr.io/distroless/nodejs22-debian13@sha256:5ef534d3db0ac0c43bee379af4ae49cfbfc0ef38a46c94c52d87c68f32f34d8a AS runtime
+COPY --from=runtime-security /usr/lib/x86_64-linux-gnu/libcrypto.so.3 /usr/lib/x86_64-linux-gnu/libcrypto.so.3
+COPY --from=runtime-security /usr/lib/x86_64-linux-gnu/libssl.so.3 /usr/lib/x86_64-linux-gnu/libssl.so.3
+COPY --from=runtime-security /patched-dpkg/libssl3t64 /var/lib/dpkg/status.d/libssl3t64
 WORKDIR /app
 ARG BUILD_SHA=local-dev
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=8080 BUILD_SHA=${BUILD_SHA}

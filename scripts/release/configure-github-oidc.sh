@@ -106,6 +106,7 @@ ensure_role Contributor "$webapp_id"
 ensure_role Contributor "$mysql_id"
 ensure_role Contributor "$key_vault_id"
 ensure_role "Key Vault Secrets User" "$key_vault_id"
+ensure_role Reader "$acr_id"
 ensure_role AcrPush "$acr_id"
 
 jq -n '{wait_timer:0,deployment_branch_policy:{protected_branches:false,custom_branch_policies:true}}' |
