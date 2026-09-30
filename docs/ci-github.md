@@ -31,14 +31,19 @@ dùng `https://registry.npmjs.org/` theo lockfile, không phụ thuộc jfrog-au
 
 Để trống hoặc đặt false cả `AZURE_CD_ENABLED` và `AZURE_CD_CONFIG_REVIEWED`.
 Deploy job cần cả hai true và ref main; không phải bằng chứng đã sẵn sàng.
-Workflow CD cũ còn các điểm phải sửa/kiểm chứng trước khi bật:
+Workflow CD vẫn còn các điểm phải kiểm chứng trước khi bật:
 
-- Hostname đang ghép cứng, khác hostname Azure có suffix của tài nguyên Portal;
-  cần lấy defaultHostName thực tế cho từng slot.
-- Azure đã báo sitecontainers; script cũ dùng config container set. Phải chọn
-  lệnh đúng cho mode này, không tự chuyển kiểu triển khai.
-- Migration đang dùng hanoiadmin/mysql-admin-password; phải chốt identity,
-  tên secret, TLS CA và quyền DB thực tế (không dùng mật khẩu đã lộ trong chat).
+- Workflow lấy `defaultHostName` thực tế cho từng slot; cần xác nhận lại bằng một
+  staging run vì Azure gắn suffix riêng cho hostname Portal-created.
+- Cloud read-only 30/09 xác nhận production/staging dùng `linuxFxVersion=sitecontainers`
+  với main container tên `main`. Workflow kiểm tra mode rồi dùng
+  `az webapp sitecontainers update --container-name main --image ...`; nếu mode
+  khác thì fail, không tự chuyển kiểu triển khai. Lệnh đã qua policy test nhưng
+  chưa được chạy deploy thật.
+- Migration không còn hardcode user/secret của Terraform mẫu. Trước khi bật CD,
+  phải review và cấu hình `AZURE_MYSQL_DATABASE`, `AZURE_MYSQL_MIGRATION_USER`,
+  `AZURE_MYSQL_PASSWORD_SECRET`, TLS CA và quyền DB thực tế; không dùng mật khẩu
+  đã lộ trong chat.
 - Kiểm kê/import hạ tầng Portal vào Terraform; không apply chồng để tạo tài nguyên.
 - Cấu hình OIDC Azure riêng cho GitHub environment azure-sandbox, quyền tối thiểu;
   giới hạn environment chỉ main và approval nếu tài khoản hỗ trợ. Không chuyển
@@ -47,7 +52,7 @@ Workflow CD cũ còn các điểm phải sửa/kiểm chứng trước khi bật
   phải kiểm chứng rule đã gỡ. Chốt ngưỡng image scan: hiện HIGH/CRITICAL chưa
   tương đương yêu cầu đề gốc “không còn CVE”.
 
-Tài liệu chính thức: [GitHub OIDC với Azure](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-azure).
+Tài liệu chính thức: [GitHub OIDC với Azure](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-azure) và [Azure CLI sitecontainers](https://learn.microsoft.com/cli/azure/webapp/sitecontainers).
 Chưa thay đổi quyền/ruleset/environment trên GitHub hoặc Azure trong bước này.
 
 Job `container-check` trên PR build image trong step riêng, Compose smoke dùng `--no-build`, rồi scan cùng image. Xem [kiểm thử](testing.md) và [known issues](../known-issues.md) để phân biệt kết quả local với phần còn cần kiểm chứng.

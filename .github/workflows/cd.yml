@@ -45,6 +45,9 @@ jobs:
       WEBAPP_NAME: ${{ vars.AZURE_WEBAPP_NAME }}
       ACR_NAME: ${{ vars.AZURE_ACR_NAME }}
       MYSQL_SERVER: ${{ vars.AZURE_MYSQL_SERVER }}
+      MYSQL_DATABASE: ${{ vars.AZURE_MYSQL_DATABASE }}
+      MYSQL_MIGRATION_USER: ${{ vars.AZURE_MYSQL_MIGRATION_USER }}
+      MYSQL_PASSWORD_SECRET: ${{ vars.AZURE_MYSQL_PASSWORD_SECRET }}
       KEY_VAULT_NAME: ${{ vars.AZURE_KEY_VAULT }}
       IMAGE_REPOSITORY: hanoitrip
       SLOT_NAME: staging
@@ -93,21 +96,28 @@ jobs:
             --slot "$SLOT_NAME" --rule-name github-cd-temporary --action Allow --ip-address "$runner_ip/32" --priority 90
       - name: Run additive database migration
         env:
-          MYSQL_DATABASE: hanoitrip
-          MYSQL_USER: hanoiadmin
           MYSQL_TLS: 'true'
           DB_MODE: mysql
           NODE_ENV: production
           BUILD_SHA: ${{ github.sha }}
         run: |
           npm ci --include=dev --engine-strict --registry=https://registry.npmjs.org/ --strict-ssl=true --no-audit --no-fund
-          password=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name mysql-admin-password --query value -o tsv)
+          password=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "$MYSQL_PASSWORD_SECRET" --query value -o tsv)
           echo "::add-mask::$password"
-          MYSQL_PASSWORD="$password" MYSQL_HOST="$MYSQL_SERVER.mysql.database.azure.com" npm run migrate
+          MYSQL_PASSWORD="$password" MYSQL_USER="$MYSQL_MIGRATION_USER" \
+            MYSQL_HOST="$MYSQL_SERVER.mysql.database.azure.com" npm run migrate
       - name: Deploy and warm staging
         run: |
-          az webapp config container set --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" --slot "$SLOT_NAME" \
-            --docker-custom-image-name "$IMAGE" --docker-registry-server-url "https://$ACR_NAME.azurecr.io"
+          container_mode=$(az webapp config show --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
+            --slot "$SLOT_NAME" --query linuxFxVersion --output tsv)
+          if [ "$container_mode" != "sitecontainers" ]; then
+            echo "Expected staging to use sitecontainers; refusing an implicit deployment-mode conversion." >&2
+            exit 1
+          fi
+          az webapp sitecontainers show --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
+            --slot "$SLOT_NAME" --container-name main >/dev/null
+          az webapp sitecontainers update --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
+            --slot "$SLOT_NAME" --container-name main --image "$IMAGE" >/dev/null
           az webapp config appsettings set --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" --slot "$SLOT_NAME" \
             --settings "BUILD_SHA=$GITHUB_SHA" >/dev/null
           az webapp restart --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" --slot "$SLOT_NAME"

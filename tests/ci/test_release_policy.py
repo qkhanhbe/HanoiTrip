@@ -29,6 +29,23 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertIn("AZURE_RELEASE_REQUIRE_ROAD_PROVIDER", self.workflow)
         self.assertIn("SMOKE_ROAD=1", self.workflow)
 
+    def test_staging_updates_the_existing_sitecontainer_without_mode_conversion(self):
+        self.assertIn("--query linuxFxVersion", self.workflow)
+        self.assertIn('if [ "$container_mode" != "sitecontainers" ]', self.workflow)
+        self.assertIn("az webapp sitecontainers show", self.workflow)
+        self.assertIn("az webapp sitecontainers update", self.workflow)
+        self.assertIn("--container-name main --image \"$IMAGE\"", self.workflow)
+        self.assertNotIn("az webapp config container set", self.workflow)
+
+    def test_migration_uses_reviewed_configuration_not_template_credentials(self):
+        self.assertIn("AZURE_MYSQL_DATABASE", self.workflow)
+        self.assertIn("AZURE_MYSQL_MIGRATION_USER", self.workflow)
+        self.assertIn("AZURE_MYSQL_PASSWORD_SECRET", self.workflow)
+        self.assertIn('--name "$MYSQL_PASSWORD_SECRET"', self.workflow)
+        self.assertIn('MYSQL_USER="$MYSQL_MIGRATION_USER"', self.workflow)
+        self.assertNotIn("MYSQL_USER: hanoiadmin", self.workflow)
+        self.assertNotIn("--name mysql-admin-password", self.workflow)
+
 
 if __name__ == "__main__":
     unittest.main()
