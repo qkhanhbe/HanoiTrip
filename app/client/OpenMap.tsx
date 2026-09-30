@@ -13,7 +13,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import type { Point, TripRoute } from '../shared/contracts';
 import { serviceArea } from '../shared/geo';
 
-const STYLE = 'https://tiles.openfreemap.org/styles/positron';
+const STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 // MapLibre 6 ships an ES-module worker separately; let Vite bundle its dependencies.
 setWorkerUrl(workerUrl);
 const CENTER: [number, number] = [105.825, 21.04];
@@ -102,14 +102,14 @@ export default function OpenMap({
         type: 'line',
         source: 'demo-route',
         layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': '#ffffff', 'line-width': 8 },
+        paint: { 'line-color': '#fffaf0', 'line-width': 9 },
       });
       instance.addLayer({
         id: 'demo-route-line',
         type: 'line',
         source: 'demo-route',
         layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': '#176fbd', 'line-width': 4, 'line-dasharray': [2, 1.5] },
+        paint: { 'line-color': '#c94f38', 'line-width': 5, 'line-dasharray': [2, 1.5] },
       });
       setReady(true);
     });

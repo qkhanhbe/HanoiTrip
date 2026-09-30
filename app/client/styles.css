@@ -1,19 +1,30 @@
 :root {
   font-family: 'Be Vietnam Pro', sans-serif;
-  color: #183a37;
-  background: #e7ebe4;
+  color: #173e39;
+  background: #dfe9e5;
   font-synthesis: none;
   font-weight: 400;
-  --green: #123f39;
-  --blue: #176fbd;
-  --muted: #60746f;
-  --line: #dce4df;
+  color-scheme: light;
+  --green: #0f463d;
+  --blue: #216f86;
+  --brick: #c94f38;
+  --muted: #586f69;
+  --line: #cbd9d3;
+  --canvas: #dfe9e5;
+  --surface: #f4f7f3;
+  --surface-raised: #fbfcf8;
+  --surface-muted: #e5eee9;
 }
 * {
   box-sizing: border-box;
 }
+::selection {
+  color: #f8fbf6;
+  background: #216f86;
+}
 body {
   margin: 0;
+  background: var(--canvas);
 }
 button,
 input,
@@ -82,18 +93,21 @@ p {
 .skip-link:focus {
   position: fixed;
   z-index: 30;
-  background: white;
+  color: var(--green);
+  background: #f8fbf6;
   padding: 16px;
 }
 .header {
   height: 68px;
-  background: white;
+  color: #f7faf5;
+  background: #103f38;
   display: flex;
   align-items: center;
   padding: 0 30px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid #2b5a52;
   position: relative;
   z-index: 5;
+  box-shadow: 0 8px 26px #0a302b24;
 }
 .brand {
   display: flex;
@@ -111,8 +125,8 @@ p {
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  background: var(--green);
-  color: white;
+  background: #dceca0;
+  color: #103f38;
   display: grid;
   place-content: center;
   font-size: 25px;
@@ -124,7 +138,7 @@ p {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #cceba0;
+  background: var(--brick);
   left: 14px;
   top: 15px;
 }
@@ -136,16 +150,16 @@ p {
   align-items: center;
   gap: 10px;
   font-size: 13px;
-  color: var(--muted);
+  color: #c4d6d0;
   white-space: nowrap;
 }
 .header-center svg {
-  color: var(--green);
+  color: #dceca0;
 }
 .header-divider {
   width: 1px;
   height: 15px;
-  background: #dce3de;
+  background: #ffffff3d;
   margin: 0 4px;
 }
 .about-button {
@@ -155,6 +169,11 @@ p {
   gap: 8px;
   font-size: 13px;
   padding: 10px;
+  color: #f7faf5;
+  border-radius: 8px;
+}
+.about-button:hover {
+  background: #ffffff12;
 }
 .workspace {
   height: calc(100dvh - 68px);
@@ -162,13 +181,13 @@ p {
   grid-template-columns: 468px minmax(0, 1fr);
 }
 .planner {
-  background: white;
+  background: var(--surface);
   z-index: 3;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  border-right: 1px solid #cfd9d3;
-  box-shadow: 10px 0 30px #183e3910;
+  border-right: 1px solid #bfd0c9;
+  box-shadow: 12px 0 34px #103f3824;
 }
 .tabs {
   display: flex;
@@ -176,6 +195,7 @@ p {
   border-bottom: 1px solid var(--line);
   flex-shrink: 0;
   gap: 28px;
+  background: #dfeae5;
 }
 .tabs button {
   display: flex;
@@ -190,17 +210,18 @@ p {
 }
 .tabs button.active {
   color: var(--green);
-  border-color: var(--green);
+  border-color: var(--brick);
   font-weight: 600;
 }
 .panel-scroll {
   overflow: auto;
   scrollbar-width: thin;
-  scrollbar-color: #d2dbd7 transparent;
+  scrollbar-color: #99b2a9 transparent;
   flex: 1;
 }
 .search-section {
   padding: 28px 28px 20px;
+  background: var(--surface);
 }
 .intro p {
   font-size: 13px;
@@ -213,8 +234,8 @@ p {
   border: 1px solid #dce4df;
   border-radius: 14px;
   padding: 4px 16px;
-  background: #fbfcfa;
-  box-shadow: 0 5px 16px #183e3908;
+  background: var(--surface-raised);
+  box-shadow: 0 8px 24px #103f380d;
 }
 .place-input {
   display: flex;
@@ -231,8 +252,8 @@ p {
   flex-shrink: 0;
 }
 .destination .place-dot {
-  border-color: var(--green);
-  background: var(--green);
+  border-color: var(--brick);
+  background: var(--brick);
   border-radius: 3px;
 }
 .origin .place-dot:after {
@@ -293,7 +314,7 @@ p {
   top: 53px;
   border: 1px solid #dce4df;
   border-radius: 50%;
-  background: white;
+  background: #f9fbf7;
   display: grid;
   place-items: center;
   width: 34px;
@@ -312,7 +333,7 @@ p {
   margin: 4px 0 0;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: white;
+  background: #f9fbf7;
   box-shadow: 0 10px 25px #183e3920;
 }
 .place-options li {
@@ -325,7 +346,7 @@ p {
   border-radius: 5px;
 }
 .place-options li[aria-selected='true'] {
-  background: #edf4f0;
+  background: #dfece7;
 }
 .place-options small {
   display: block;
@@ -378,7 +399,7 @@ p {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  background: var(--green);
+  background: #0f463d;
   border-radius: 10px;
   color: white;
   width: 100%;
@@ -390,7 +411,7 @@ p {
     transform 0.15s;
 }
 .search-button:hover:not(:disabled) {
-  background: #205b50;
+  background: #176052;
   transform: translateY(-1px);
 }
 .search-button span {
@@ -410,12 +431,12 @@ p {
   height: 5px;
   width: 5px;
   border-radius: 50%;
-  background: #8caa82;
+  background: var(--brick);
 }
 .results-section {
   padding: 24px 28px;
   border-top: 1px solid var(--line);
-  background: #f3f6f2;
+  background: var(--surface-muted);
   min-height: 280px;
 }
 .results-heading {
@@ -432,15 +453,15 @@ p {
   color: var(--muted);
 }
 .journey-card {
-  background: white;
-  border: 1px solid #e0e7e2;
+  background: var(--surface-raised);
+  border: 1px solid #cedbd5;
   border-radius: 14px;
   margin-bottom: 14px;
   overflow: hidden;
 }
 .journey-card.selected {
-  border-color: #2f796b;
-  box-shadow: 0 8px 24px #183e3910;
+  border-color: var(--brick);
+  box-shadow: 0 10px 26px #103f3818;
 }
 .journey-summary {
   width: 100%;
@@ -639,7 +660,7 @@ p {
   text-align: left;
   align-items: center;
   justify-content: space-between;
-  background: white;
+  background: #f8f5e9;
   border: 1px solid var(--line);
   border-radius: 11px;
   width: 100%;
@@ -658,9 +679,9 @@ p {
   gap: 6px;
   padding: 13px 24px;
   font-size: 10px;
-  color: #7b8c83;
+  color: #546d66;
   border-top: 1px solid var(--line);
-  background: white;
+  background: #dce8e2;
 }
 .panel-footer > span:last-child {
   margin-left: auto;
@@ -670,12 +691,12 @@ p {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #83a976;
+  background: var(--brick);
 }
 .map-section {
   position: relative;
   overflow: hidden;
-  background: #e4e9e1;
+  background: #bfd4d4;
 }
 .map-canvas {
   position: absolute;
@@ -692,10 +713,11 @@ p {
   right: 14px;
 }
 .open-map .maplibregl-ctrl-group {
-  border: 1px solid var(--line);
+  border: 1px solid #b8cac2;
   border-radius: 10px;
   box-shadow: 0 5px 18px #183e391a;
   overflow: hidden;
+  background: #f8faf5;
 }
 .open-map .maplibregl-ctrl-group button {
   width: 40px;
@@ -706,7 +728,7 @@ p {
   font-size: 10px;
   line-height: 1.6;
   padding: 4px 8px;
-  background: #fffffff2;
+  background: #f6f9f2ed;
   white-space: normal;
   overflow-wrap: anywhere;
   max-width: 100%;
@@ -740,7 +762,7 @@ p {
   background: var(--blue);
 }
 .destination-marker {
-  background: var(--green);
+  background: var(--brick);
 }
 .open-map-actions {
   position: absolute;
@@ -750,7 +772,7 @@ p {
   flex-direction: column;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: white;
+  background: #f8faf5;
   box-shadow: 0 5px 18px #183e391a;
   overflow: hidden;
 }
@@ -785,7 +807,7 @@ p {
   max-width: calc(100% - 100px);
   padding: 7px 10px;
   border-radius: 6px;
-  background: #fffffff2;
+  background: #fff8e8f2;
   color: #38574e;
   font-size: 10px;
   line-height: 1.5;
@@ -872,16 +894,17 @@ p {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: white;
+  color: #f7faf5;
+  background: #103f38ee;
   padding: 13px 18px 13px 12px;
-  border: 1px solid #d7dfd8;
+  border: 1px solid #37645c;
   border-radius: 12px;
   box-shadow: 0 8px 28px #183e3918;
   pointer-events: none;
 }
 .location-icon {
-  background: #e5efe8;
-  color: var(--green);
+  background: #dceca0;
+  color: #103f38;
   border-radius: 8px;
   width: 37px;
   height: 37px;
@@ -895,7 +918,7 @@ p {
 .map-location div > span {
   font-size: 11px;
   display: block;
-  color: var(--muted);
+  color: #bed1ca;
   margin-top: 4px;
 }
 .map-controls {
@@ -936,7 +959,7 @@ p {
   bottom: 30px;
   left: 26px;
   max-width: calc(100% - 110px);
-  background: white;
+  background: #f8faf5f2;
   box-shadow: 0 8px 28px #183e3920;
   border: 1px solid #d9e1dc;
   border-radius: 12px;
@@ -949,7 +972,7 @@ p {
 .route-color {
   width: 5px;
   height: 30px;
-  background: var(--blue);
+  background: var(--brick);
   border-radius: 999px;
   flex-shrink: 0;
 }
@@ -981,7 +1004,7 @@ p {
   position: absolute;
   top: 111px;
   left: 26px;
-  background: white;
+  background: #f8faf5f2;
   border: 1px solid #d7dfd8;
   border-radius: 11px;
   padding: 8px 9px 8px 12px;
@@ -997,7 +1020,7 @@ p {
 .map-pick > div {
   display: flex;
   padding: 2px;
-  background: #edf2ee;
+  background: #dce8e2;
   border-radius: 7px;
 }
 .map-pick button {
@@ -1006,7 +1029,7 @@ p {
   font-size: 11px;
 }
 .map-pick button.active {
-  background: white;
+  background: #fffdf7;
   color: var(--green);
   font-weight: 600;
   box-shadow: 0 1px 4px #183e3918;
@@ -1032,13 +1055,14 @@ p {
   top: 180px;
   left: 26px;
   right: 26px;
-  background: white;
+  background: #f8faf5;
   padding: 20px;
   border-radius: 10px;
   font-size: 13px;
 }
 .saved-section {
   padding: 25px 24px;
+  background: var(--surface);
 }
 .saved-description {
   font-size: 12px;
@@ -1046,7 +1070,7 @@ p {
   margin: 10px 0;
 }
 .sandbox-note {
-  background: #f1f5ec;
+  background: #e2ece5;
   padding: 10px 12px;
   border-radius: 6px;
   font-size: 10px;
@@ -1101,7 +1125,7 @@ p {
   border-radius: 6px;
   padding: 9px 15px;
   font-size: 12px;
-  background: white;
+  background: #f8faf5;
 }
 .inline-error {
   font-size: 11px;
@@ -1156,6 +1180,7 @@ p {
   padding: 35px;
   max-width: min(460px, calc(100% - 30px));
   color: var(--green);
+  background: #f7faf5;
 }
 .about-dialog::backdrop {
   background: #14352e60;
