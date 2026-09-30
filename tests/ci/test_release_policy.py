@@ -112,6 +112,20 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertIn("--container-name main --image \"$IMAGE\"", self.workflow)
         self.assertNotIn("az webapp config container set", self.workflow)
 
+    def test_release_image_scan_uses_the_reviewed_expiring_exception_file(self):
+        marker = "- name: Build, scan and push immutable image"
+        start = self.workflow.index(marker)
+        end = self.workflow.index("- name: Open temporary runner access", start)
+        image_gate = self.workflow[start:end]
+        self.assertIn(".trivyignore.yaml:/policy/.trivyignore.yaml:ro", image_gate)
+        self.assertIn("--ignorefile /policy/.trivyignore.yaml", image_gate)
+        self.assertIn("--severity HIGH,CRITICAL --exit-code 1", image_gate)
+
+        exceptions = (ROOT / ".trivyignore.yaml").read_text(encoding="utf-8")
+        self.assertIn("CVE-2026-84782", exceptions)
+        self.assertIn("expired_at: 2026-10-14", exceptions)
+        self.assertIn("HanoiTrip does not expose or initiate DTLS", exceptions)
+
     def test_migration_uses_reviewed_configuration_not_template_credentials(self):
         self.assertIn("AZURE_MYSQL_DATABASE", self.workflow)
         self.assertIn("AZURE_MYSQL_MIGRATION_USER", self.workflow)
