@@ -6,6 +6,10 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 4.0"
     }
+    azapi = {
+      source  = "Azure/azapi"
+      version = "~> 2.12"
+    }
     random = {
       source  = "hashicorp/random"
       version = "~> 3.6"
@@ -21,5 +25,7 @@ provider "azurerm" {
     }
   }
 }
+
+provider "azapi" {}
 
 data "azurerm_client_config" "current" {}

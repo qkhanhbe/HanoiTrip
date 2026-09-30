@@ -35,12 +35,6 @@ variable "initial_image" {
   description = "Bootstrap image; CD replaces this with an immutable ACR SHA tag."
 }
 
-variable "initial_registry_url" {
-  type        = string
-  default     = "https://mcr.microsoft.com"
-  description = "Registry used only for the public bootstrap image."
-}
-
 variable "routes_mode" {
   type        = string
   default     = "demo"

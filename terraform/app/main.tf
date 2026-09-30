@@ -46,6 +46,13 @@ resource "azurerm_resource_group" "app" {
   tags     = var.tags
 }
 
+resource "azurerm_user_assigned_identity" "app" {
+  name                = "id-${var.project_name}-${local.suffix}"
+  resource_group_name = azurerm_resource_group.app.name
+  location            = azurerm_resource_group.app.location
+  tags                = var.tags
+}
+
 resource "azurerm_container_registry" "app" {
   name                = "acr${local.compact_name}"
   resource_group_name = azurerm_resource_group.app.name
@@ -79,7 +86,7 @@ resource "azurerm_key_vault" "app" {
   location                      = azurerm_resource_group.app.location
   tenant_id                     = data.azurerm_client_config.current.tenant_id
   sku_name                      = "standard"
-  rbac_authorization_enabled    = false
+  rbac_authorization_enabled    = true
   purge_protection_enabled      = true
   soft_delete_retention_days    = 7
   public_network_access_enabled = true
@@ -95,11 +102,12 @@ resource "azurerm_key_vault" "app" {
     ))
   }
 
-  access_policy {
-    tenant_id          = data.azurerm_client_config.current.tenant_id
-    object_id          = data.azurerm_client_config.current.object_id
-    secret_permissions = ["Get", "List", "Set", "Delete", "Purge", "Recover"]
-  }
+}
+
+resource "azurerm_role_assignment" "terraform_key_vault_secrets_officer" {
+  scope                = azurerm_key_vault.app.id
+  role_definition_name = "Key Vault Secrets Officer"
+  principal_id         = data.azurerm_client_config.current.object_id
 }
 
 # Expiry is a required, RFC 3339-validated deployment input. Trivy cannot resolve
@@ -111,6 +119,8 @@ resource "azurerm_key_vault_secret" "mysql_password" {
   key_vault_id    = azurerm_key_vault.app.id
   content_type    = "password"
   expiration_date = var.mysql_secret_expiration_date
+
+  depends_on = [azurerm_role_assignment.terraform_key_vault_secrets_officer]
 }
 
 # The internship requires a public MySQL endpoint restricted to App Service
@@ -160,31 +170,31 @@ resource "azurerm_mysql_flexible_database" "app" {
 # evidence and browser access. Reassess if user accounts enter scope.
 #trivy:ignore:AVD-AZU-0001:exp:2027-03-31 trivy:ignore:AVD-AZU-0003:exp:2027-03-31
 resource "azurerm_linux_web_app" "app" {
-  name                = "app-${var.project_name}-${local.suffix}"
-  resource_group_name = azurerm_resource_group.app.name
-  location            = azurerm_resource_group.app.location
-  service_plan_id     = azurerm_service_plan.app.id
-  https_only          = true
-  app_settings        = local.app_settings
-  tags                = var.tags
+  name                            = "app-${var.project_name}-${local.suffix}"
+  resource_group_name             = azurerm_resource_group.app.name
+  location                        = azurerm_resource_group.app.location
+  service_plan_id                 = azurerm_service_plan.app.id
+  https_only                      = true
+  app_settings                    = local.app_settings
+  key_vault_reference_identity_id = azurerm_user_assigned_identity.app.id
+  tags                            = var.tags
 
-  identity { type = "SystemAssigned" }
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.app.id]
+  }
 
   site_config {
-    always_on                               = true
-    container_registry_use_managed_identity = true
-    ftps_state                              = "Disabled"
-    health_check_path                       = "/health"
-    http2_enabled                           = true
-    minimum_tls_version                     = "1.2"
-    scm_minimum_tls_version                 = "1.2"
-    ip_restriction_default_action           = "Deny"
-    scm_ip_restriction_default_action       = "Deny"
-
-    application_stack {
-      docker_image_name   = var.initial_image
-      docker_registry_url = var.initial_registry_url
-    }
+    always_on                                     = true
+    container_registry_use_managed_identity       = true
+    container_registry_managed_identity_client_id = azurerm_user_assigned_identity.app.client_id
+    ftps_state                                    = "Disabled"
+    health_check_path                             = "/health"
+    http2_enabled                                 = true
+    minimum_tls_version                           = "1.2"
+    scm_minimum_tls_version                       = "1.2"
+    ip_restriction_default_action                 = "Deny"
+    scm_ip_restriction_default_action             = "Deny"
 
     dynamic "ip_restriction" {
       for_each = { for index, cidr in var.allowed_ip_cidrs : cidr => index }
@@ -200,35 +210,33 @@ resource "azurerm_linux_web_app" "app" {
   lifecycle {
     ignore_changes = [
       app_settings["BUILD_SHA"],
-      site_config[0].application_stack[0].docker_image_name,
-      site_config[0].application_stack[0].docker_registry_url,
     ]
   }
 }
 
 resource "azurerm_linux_web_app_slot" "staging" {
-  name           = "staging"
-  app_service_id = azurerm_linux_web_app.app.id
-  app_settings   = local.app_settings
-  tags           = var.tags
+  name                            = "staging"
+  app_service_id                  = azurerm_linux_web_app.app.id
+  app_settings                    = local.app_settings
+  key_vault_reference_identity_id = azurerm_user_assigned_identity.app.id
+  tags                            = var.tags
 
-  identity { type = "SystemAssigned" }
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.app.id]
+  }
 
   site_config {
-    always_on                               = true
-    container_registry_use_managed_identity = true
-    ftps_state                              = "Disabled"
-    health_check_path                       = "/health"
-    http2_enabled                           = true
-    minimum_tls_version                     = "1.2"
-    scm_minimum_tls_version                 = "1.2"
-    ip_restriction_default_action           = "Deny"
-    scm_ip_restriction_default_action       = "Deny"
-
-    application_stack {
-      docker_image_name   = var.initial_image
-      docker_registry_url = var.initial_registry_url
-    }
+    always_on                                     = true
+    container_registry_use_managed_identity       = true
+    container_registry_managed_identity_client_id = azurerm_user_assigned_identity.app.client_id
+    ftps_state                                    = "Disabled"
+    health_check_path                             = "/health"
+    http2_enabled                                 = true
+    minimum_tls_version                           = "1.2"
+    scm_minimum_tls_version                       = "1.2"
+    ip_restriction_default_action                 = "Deny"
+    scm_ip_restriction_default_action             = "Deny"
 
     dynamic "ip_restriction" {
       for_each = { for index, cidr in var.allowed_ip_cidrs : cidr => index }
@@ -244,36 +252,85 @@ resource "azurerm_linux_web_app_slot" "staging" {
   lifecycle {
     ignore_changes = [
       app_settings["BUILD_SHA"],
-      site_config[0].application_stack[0].docker_image_name,
-      site_config[0].application_stack[0].docker_registry_url,
     ]
+  }
+}
+
+# AzureRM does not yet model App Service's sitecontainers child resources.
+# Keep the Web App/slot lifecycle in AzureRM and use AzAPI only for the new
+# container deployment mode that the release workflow updates by immutable SHA.
+resource "azapi_update_resource" "app_sitecontainers_mode" {
+  type        = "Microsoft.Web/sites/config@2024-04-01"
+  resource_id = "${azurerm_linux_web_app.app.id}/config/web"
+  body = {
+    properties = {
+      linuxFxVersion = "sitecontainers"
+    }
+  }
+}
+
+resource "azapi_update_resource" "staging_sitecontainers_mode" {
+  type        = "Microsoft.Web/sites/slots/config@2024-04-01"
+  resource_id = "${azurerm_linux_web_app_slot.staging.id}/config/web"
+  body = {
+    properties = {
+      linuxFxVersion = "sitecontainers"
+    }
+  }
+}
+
+resource "azapi_resource" "production_main_container" {
+  type      = "Microsoft.Web/sites/sitecontainers@2024-04-01"
+  name      = "main"
+  parent_id = azurerm_linux_web_app.app.id
+  body = {
+    properties = {
+      authType   = "Anonymous"
+      image      = var.initial_image
+      isMain     = true
+      targetPort = "8080"
+    }
+  }
+
+  depends_on = [azapi_update_resource.app_sitecontainers_mode]
+
+  lifecycle {
+    # CD owns the immutable image and switches auth to the shared UAMI.
+    ignore_changes = [body]
+  }
+}
+
+resource "azapi_resource" "staging_main_container" {
+  type      = "Microsoft.Web/sites/slots/sitecontainers@2024-04-01"
+  name      = "main"
+  parent_id = azurerm_linux_web_app_slot.staging.id
+  body = {
+    properties = {
+      authType   = "Anonymous"
+      image      = var.initial_image
+      isMain     = true
+      targetPort = "8080"
+    }
+  }
+
+  depends_on = [azapi_update_resource.staging_sitecontainers_mode]
+
+  lifecycle {
+    # CD owns the immutable image and switches auth to the shared UAMI.
+    ignore_changes = [body]
   }
 }
 
 resource "azurerm_role_assignment" "app_acr_pull" {
   scope                = azurerm_container_registry.app.id
   role_definition_name = "AcrPull"
-  principal_id         = azurerm_linux_web_app.app.identity[0].principal_id
+  principal_id         = azurerm_user_assigned_identity.app.principal_id
 }
 
-resource "azurerm_role_assignment" "slot_acr_pull" {
-  scope                = azurerm_container_registry.app.id
-  role_definition_name = "AcrPull"
-  principal_id         = azurerm_linux_web_app_slot.staging.identity[0].principal_id
-}
-
-resource "azurerm_key_vault_access_policy" "app" {
-  key_vault_id       = azurerm_key_vault.app.id
-  tenant_id          = azurerm_linux_web_app.app.identity[0].tenant_id
-  object_id          = azurerm_linux_web_app.app.identity[0].principal_id
-  secret_permissions = ["Get", "List"]
-}
-
-resource "azurerm_key_vault_access_policy" "slot" {
-  key_vault_id       = azurerm_key_vault.app.id
-  tenant_id          = azurerm_linux_web_app_slot.staging.identity[0].tenant_id
-  object_id          = azurerm_linux_web_app_slot.staging.identity[0].principal_id
-  secret_permissions = ["Get", "List"]
+resource "azurerm_role_assignment" "app_key_vault_secrets_user" {
+  scope                = azurerm_key_vault.app.id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_user_assigned_identity.app.principal_id
 }
 
 resource "azurerm_mysql_flexible_server_firewall_rule" "app_outbound" {
@@ -302,10 +359,9 @@ resource "azurerm_role_assignment" "github_deploy" {
   principal_id         = var.github_actions_principal_object_id
 }
 
-resource "azurerm_key_vault_access_policy" "github" {
-  count              = var.github_actions_principal_object_id == null ? 0 : 1
-  key_vault_id       = azurerm_key_vault.app.id
-  tenant_id          = data.azurerm_client_config.current.tenant_id
-  object_id          = var.github_actions_principal_object_id
-  secret_permissions = ["Get", "List", "Set"]
+resource "azurerm_role_assignment" "github_key_vault_secrets_user" {
+  count                = var.github_actions_principal_object_id == null ? 0 : 1
+  scope                = azurerm_key_vault.app.id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = var.github_actions_principal_object_id
 }
