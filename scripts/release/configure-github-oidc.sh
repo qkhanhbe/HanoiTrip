@@ -23,7 +23,13 @@ for command_name in az gh jq; do
   }
 done
 
-gh repo view "$repo" --json nameWithOwner --jq .nameWithOwner >/dev/null
+repo_metadata=$(gh api "repos/$repo")
+canonical_repo=$(jq -er '.full_name' <<<"$repo_metadata")
+repo_name=$(jq -er '.name' <<<"$repo_metadata")
+repo_id=$(jq -er '.id' <<<"$repo_metadata")
+owner_login=$(jq -er '.owner.login' <<<"$repo_metadata")
+owner_id=$(jq -er '.owner.id' <<<"$repo_metadata")
+repo="$canonical_repo"
 subscription_id=$(az account show --query id -o tsv)
 tenant_id=$(az account show --query tenantId -o tsv)
 
@@ -45,19 +51,35 @@ if [ -z "$service_principal_id" ]; then
 fi
 
 credential_name="github-${environment}"
-expected_subject="repo:${repo}:environment:${environment}"
+expected_subject="repo:${owner_login}@${owner_id}/${repo_name}@${repo_id}:environment:${environment}"
+legacy_subject="repo:${repo}:environment:${environment}"
 credential_count=$(az ad app federated-credential list --id "$app_object_id" \
   --query "[?name=='$credential_name'] | length(@)" -o tsv)
-if [ "$credential_count" -eq 0 ]; then
+
+create_federated_credential() {
+  local credential_json
   credential_json=$(jq -c -n \
     --arg name "$credential_name" \
     --arg subject "$expected_subject" \
     '{name:$name,issuer:"https://token.actions.githubusercontent.com",subject:$subject,audiences:["api://AzureADTokenExchange"]}')
   az ad app federated-credential create --id "$app_object_id" --parameters "$credential_json" >/dev/null
+}
+
+if [ "$credential_count" -gt 1 ]; then
+  echo "Multiple federated credentials use name $credential_name; refusing an ambiguous update." >&2
+  exit 1
+fi
+if [ "$credential_count" -eq 0 ]; then
+  create_federated_credential
 else
   actual_subject=$(az ad app federated-credential list --id "$app_object_id" \
     --query "[?name=='$credential_name'].subject | [0]" -o tsv)
-  if [ "$actual_subject" != "$expected_subject" ]; then
+  if [ "$actual_subject" = "$legacy_subject" ]; then
+    echo "Migrating the repository-scoped OIDC subject to GitHub's immutable owner/repository ID format."
+    az ad app federated-credential delete --id "$app_object_id" \
+      --federated-credential-id "$credential_name" >/dev/null
+    create_federated_credential
+  elif [ "$actual_subject" != "$expected_subject" ]; then
     echo "Existing federated credential has a different subject; refusing to widen trust." >&2
     exit 1
   fi
