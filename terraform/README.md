@@ -29,6 +29,17 @@ then creates the private container and queue logging policy. Supply additional
 CI identity object IDs through `state_principal_object_ids`; do not create these
 assignments manually in the Portal.
 
+Source scanners currently cannot correlate the standalone queue logging
+resource with its storage account, so `AZU-0057` is a reviewed false-positive
+exception. The sandbox also accepts LRS (`AZU-0058`) and Microsoft-managed keys
+with infrastructure encryption (`AZU-0060`) to avoid introducing a second Key
+Vault lifecycle solely for non-production state. Expiring Trivy directives are
+attached directly to that storage account so they cannot suppress the same rule
+elsewhere. Trivy accepts the canonical `AVD-AZU-*` IDs across the scanner
+versions currently in use even when a report displays the shorter `AZU-*` form.
+Remove the directives or complete a new review before 31/03/2027 and before any
+production adoption.
+
 Key Vault remains default-deny. App Service production and staging integrate
 with a dedicated delegated subnet that has the `Microsoft.KeyVault` service
 endpoint, and the vault allows that subnet. Key Vault references must not rely

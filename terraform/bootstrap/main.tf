@@ -4,13 +4,13 @@ resource "azurerm_resource_group" "state" {
   tags     = var.tags
 }
 
-# LRS is intentional for this disposable, single-region internship sandbox.
-# Production state needs a separate resilience review before this expires.
 # Queue logging is configured by azurerm_storage_account_queue_properties.state.
-# The company rule evaluates only this storage-account block and cannot correlate
-# the standalone resource required for Entra authentication in AzureRM v4.
-# nosemgrep: terraform.azure.security.storage.storage-queue-services-logging.storage-queue-services-logging
+# Static analyzers that inspect only this storage-account block cannot correlate
+# that standalone resource. Reviewed, path-scoped exceptions and their expiry are
+# attached to this exact resource and documented in terraform/README.md.
+#trivy:ignore:AVD-AZU-0057:exp:2027-03-31
 #trivy:ignore:AVD-AZU-0058:exp:2027-03-31
+#trivy:ignore:AVD-AZU-0060:exp:2027-03-31
 resource "azurerm_storage_account" "state" {
   name                              = var.storage_account_name
   resource_group_name               = azurerm_resource_group.state.name
