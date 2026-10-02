@@ -255,7 +255,15 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertIn('resource "azurerm_virtual_network" "app"', app)
         self.assertIn('resource "azurerm_subnet" "app"', app)
         self.assertIn('service_endpoints    = ["Microsoft.KeyVault"]', app)
-        self.assertEqual(app.count("virtual_network_subnet_id        = azurerm_subnet.app.id"), 2)
+        self.assertEqual(
+            len(
+                re.findall(
+                    r"virtual_network_subnet_id\s*=\s*azurerm_subnet\.app\.id",
+                    app,
+                )
+            ),
+            2,
+        )
         self.assertEqual(app.count("vnet_route_all_enabled                        = true"), 2)
         self.assertIn("virtual_network_subnet_ids", app)
         self.assertNotIn("possible_outbound_ip_address_list", app)
