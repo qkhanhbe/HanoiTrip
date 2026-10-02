@@ -33,6 +33,17 @@ variable "allowed_ip_cidrs" {
   }
 }
 
+variable "state_principal_object_ids" {
+  type        = set(string)
+  default     = []
+  description = "Additional Microsoft Entra object IDs that require Blob and Queue data access to state storage, such as a GitHub plan identity. The principal running bootstrap is always included."
+
+  validation {
+    condition     = alltrue([for object_id in var.state_principal_object_ids : can(regex("^[0-9a-fA-F-]{36}$", object_id))])
+    error_message = "Each state principal object ID must be a 36-character Microsoft Entra object ID."
+  }
+}
+
 variable "tags" {
   type        = map(string)
   default     = { project = "hanoitrip", managed_by = "terraform" }
