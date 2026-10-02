@@ -42,10 +42,14 @@ variable "mysql_app_outbound_ips" {
   }
 }
 
-variable "initial_image" {
+variable "bootstrap_image_repository" {
   type        = string
-  default     = "appsvc/staticsite:latest"
-  description = "Bootstrap image; CD replaces this with an immutable ACR SHA tag."
+  default     = "hanoitrip"
+  description = "Repository created in the new ACR for the first runnable application image."
+  validation {
+    condition     = can(regex("^[a-z0-9]+(?:[._/-][a-z0-9]+)*$", var.bootstrap_image_repository))
+    error_message = "Use a lowercase OCI repository name."
+  }
 }
 
 variable "routes_mode" {

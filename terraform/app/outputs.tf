@@ -32,8 +32,13 @@ output "app_identity" {
 
 output "app_outbound_ip_addresses" {
   description = "Production and staging outbound IPv4 addresses to reconcile into the MySQL firewall on the second apply."
-  value = sort(distinct(concat(
+  value = sort(distinct(compact(concat(
     azurerm_linux_web_app.app.outbound_ip_address_list,
     azurerm_linux_web_app_slot.staging.outbound_ip_address_list,
-  )))
+  ))))
+}
+
+output "bootstrap_build_sha" {
+  description = "Deterministic source digest prefix embedded in the first image and exposed by /version."
+  value       = local.bootstrap_image_tag
 }
