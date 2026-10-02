@@ -243,6 +243,14 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertIn("mysql-firewall.auto.tfvars.json", reconcile)
         self.assertEqual(reconcile.count('terraform -chdir="$terraform_dir" apply'), 2)
 
+    def test_each_web_app_health_check_has_an_eviction_window(self):
+        app = (ROOT / "terraform/app/main.tf").read_text(encoding="utf-8")
+
+        self.assertEqual(app.count('health_check_path                             = "/health"'), 2)
+        self.assertEqual(
+            app.count("health_check_eviction_time_in_min             = 2"), 2
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
