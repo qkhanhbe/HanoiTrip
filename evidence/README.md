@@ -1,6 +1,6 @@
 # Evidence index
 
-Audit gần nhất: **30/09/2026**. Trạng thái dưới đây phân biệt rõ:
+Audit gần nhất: **02/10/2026**. Trạng thái dưới đây phân biệt rõ:
 
 - **Đạt kỹ thuật:** trạng thái live đã được kiểm tra bằng lệnh đọc.
 - **Một phần:** đã có code hoặc một phần hạ tầng nhưng chưa đạt đủ điều kiện bắt buộc.
@@ -10,21 +10,21 @@ Không dùng output local thay cho bằng chứng cloud. Screenshot và log nộ
 
 ## Kết luận hiện tại
 
-| Mốc | Trạng thái   | Kết quả audit                                                                                                                                       |
-| --- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| M1  | Đạt kỹ thuật | Registry tắt admin; ứng dụng pull image bằng user-assigned managed identity có `AcrPull`; production và staging đều chạy image trong registry.      |
-| M2  | Chưa đạt     | Chưa swap production A→B. Poller hiện cho phép lỗi tạm thời nên chưa cưỡng chế yêu cầu `0 non-200`.                                                 |
-| M3  | Một phần     | `/health` và `GET /items` live hoạt động với MySQL/TLS. Firewall có 4 outbound IP của App Service nhưng vẫn còn 3 rule IP client cũ.                |
-| M4  | Đạt kỹ thuật | Managed identity có `AcrPull` và `Key Vault Secrets User`; app settings nhạy cảm dùng Key Vault reference.                                          |
-| M5  | Một phần     | Secret và reference đã có; chưa thực hiện phép thử thu hồi quyền MI làm app lỗi rồi cấp lại quyền để phục hồi.                                      |
-| M6  | Chưa đạt     | Staging default-deny và whitelist đúng; production hiện còn rule `Allow all`.                                                                       |
-| M7  | Chưa đạt     | Live đang dùng App Service S1 và MySQL B1ms, nhưng chưa có autoscale live và chưa có số liệu Cost Analysis thật.                                    |
-| M8  | Chưa đạt     | Terraform validate được và đã mô hình hóa UAMI/RBAC/sitecontainers, nhưng chưa có backend/state, import/greenfield apply hay log `destroy → apply`. |
-| M9  | Một phần     | CI và branch protection đang hoạt động; thiếu hai bằng chứng negative bắt buộc và Terraform plan thật vẫn chưa được tạo.                            |
-| M10 | Một phần     | Main đã build/scan/push và triển khai staging thành công; production swap đang tắt nên chưa có run end-to-end.                                      |
-| M11 | Chưa đạt     | Chưa có workspace, diagnostic setting, action group hoặc metric alert live; provider `Microsoft.Insights` đang `NotRegistered`.                     |
+| Mốc | Trạng thái   | Kết quả audit                                                                                                                                     |
+| --- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M1  | Đạt kỹ thuật | Registry tắt admin; ứng dụng pull image bằng user-assigned managed identity có `AcrPull`; production và staging đều chạy image trong registry.    |
+| M2  | Chưa đạt     | Chưa swap production A→B. Poller hiện cho phép lỗi tạm thời nên chưa cưỡng chế yêu cầu `0 non-200`.                                               |
+| M3  | Một phần     | `/health` và `GET /items` live hoạt động với MySQL/TLS. Firewall có 4 outbound IP của App Service nhưng vẫn còn 3 rule IP client cũ.              |
+| M4  | Đạt kỹ thuật | Managed identity có `AcrPull` và `Key Vault Secrets User`; app settings nhạy cảm dùng Key Vault reference.                                        |
+| M5  | Một phần     | Secret và reference đã có; chưa thực hiện phép thử thu hồi quyền MI làm app lỗi rồi cấp lại quyền để phục hồi.                                    |
+| M6  | Chưa đạt     | Staging default-deny và whitelist đúng; production hiện còn rule `Allow all`.                                                                     |
+| M7  | Chưa đạt     | Live đang dùng App Service S1 và MySQL B1ms, nhưng chưa có autoscale live và chưa có số liệu Cost Analysis thật.                                  |
+| M8  | Đạt kỹ thuật | Backend Entra + locking đã kiểm chứng; greenfield `destroy → apply` dựng môi trường chạy được, CRUD/no-change đạt và cleanup cuối phiên hoàn tất. |
+| M9  | Một phần     | CI và branch protection đang hoạt động; thiếu hai bằng chứng negative bắt buộc và Terraform plan thật vẫn chưa được tạo.                          |
+| M10 | Một phần     | Main đã build/scan/push và triển khai staging thành công; production swap đang tắt nên chưa có run end-to-end.                                    |
+| M11 | Chưa đạt     | Chưa có workspace, diagnostic setting, action group hoặc metric alert live; provider `Microsoft.Insights` đang `NotRegistered`.                   |
 
-Theo chuẩn chấm nghiêm ngặt, **chưa thể tuyên bố hoàn tất M1–M11**. M1 và M4 đã đạt trạng thái kỹ thuật nhưng vẫn nên bổ sung ảnh Portal hoặc log redacted vào đúng file trước khi nộp.
+Theo chuẩn chấm nghiêm ngặt, **chưa thể tuyên bố hoàn tất M1–M11**. M1, M4 và M8 đã đạt trạng thái kỹ thuật nhưng vẫn nên bổ sung ảnh Portal hoặc log redacted vào đúng file trước khi nộp.
 
 ## Evidence cần bổ sung
 
@@ -78,10 +78,10 @@ Theo chuẩn chấm nghiêm ngặt, **chưa thể tuyên bố hoàn tất M1–M
 
 ### M8 — Terraform
 
-- Dựng một greenfield stack do Terraform quản lý để lấy evidence M8; không apply module này vào resource group live chưa có state.
-- Lưu `plan` đã review, output backend/lock và một lock-contention test.
-- Lưu transcript `destroy → apply` cùng kiểm tra `/health`, `/version` và CRUD sau apply.
-- Chứng minh không sửa Portal giữa destroy và apply.
+- Đã hoàn tất; xem [`M8.md`](M8.md) và transcript redacted
+  [`logs/m8-terraform-rebuild-2026-10-02.txt`](logs/m8-terraform-rebuild-2026-10-02.txt).
+- Khi nộp báo cáo cuối, có thể đính kèm raw terminal logs đã redaction từ
+  `.local/harness/`; không cần dựng lại stack chỉ để chụp Portal.
 
 ### M9 — CI gate
 

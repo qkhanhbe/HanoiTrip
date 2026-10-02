@@ -1,0 +1,95 @@
+M8 TERRAFORM REBUILD — REDACTED TRANSCRIPT
+Date: 2026-10-02
+Source commit: 1882989
+Subscription: Azure for Students (subscription ID redacted)
+No Azure Portal mutation was made during this transcript.
+
+1. REMOTE STATE LOCK CONTENTION
+
+$ az storage blob lease acquire ... --auth-mode login --lease-duration -1
+Acquired a temporary Entra-authenticated lease on the remote Terraform state blob.
+
+$ terraform -chdir=terraform/app plan -input=false -lock-timeout=0s
+Terraform plan was correctly blocked by remote state locking (exit 1).
+
+$ az storage blob lease release ... --auth-mode login
+Released the temporary state lease.
+leaseState=available leaseStatus=unlocked
+
+2. REVIEWED DESTROY
+
+$ terraform plan -destroy -out=m8-destroy-js4qsu.tfplan
+Plan: 0 to add, 0 to change, 38 to destroy.
+
+$ terraform show -json m8-destroy-js4qsu.tfplan | jq <action-and-scope-audit>
+delete=38
+resource_groups=[rg-hanoitrip-dev-js4qsu]
+unexpected_actions=[]
+
+$ terraform apply m8-destroy-js4qsu.tfplan
+Apply complete! Resources: 0 added, 0 changed, 38 destroyed.
+
+app_state_resources=0
+old_app_resource_group_exists=false
+backend_resource_group_exists=true
+state_container_exists=true
+state_blob_lease=available/unlocked
+
+3. CLEAN APPLY FROM EMPTY APP STATE
+
+$ scripts/terraform/apply-app.sh -input=false -auto-approve
+Removed stale MySQL firewall inputs for the new stack.
+Applying the stack. A new stack intentionally has no MySQL client rules yet.
+Plan: 34 to add, 0 to change, 0 to destroy.
+Apply complete! Resources: 34 added, 0 changed, 0 destroyed.
+
+resource_group=rg-hanoitrip-dev-bd3nfj
+build_sha=799e9c3d7787eb71
+acr=acrhanoitripdevbd3nfj
+mysql=mysql-hanoitrip-dev-bd3nfj
+key_vault=<generated-key-vault-name>
+
+Reconciling the App Service outbound addresses into the MySQL firewall.
+Plan: 4 to add, 0 to change, 0 to destroy.
+Apply complete! Resources: 4 added, 0 changed, 0 destroyed.
+
+Resolved Key Vault references for production.
+Resolved Key Vault references for staging.
+Verified production: MySQL health is ready and build SHA is 799e9c3d7787eb71.
+Verified staging: MySQL health is ready and build SHA is 799e9c3d7787eb71.
+
+4. RUNTIME AND CRUD
+
+$ EXPECTED_SHA=799e9c3d7787eb71 SMOKE_WRITE=1 BASE_URL=<production> node scripts/smoke.mjs
+{"result":"pass","buildSha":"799e9c3d7787eb71","storage":"mysql","routes":"demo","roadProvider":"disabled","roadRoutesChecked":0,"wroteFavorite":true,"diagnostics":false}
+
+$ EXPECTED_SHA=799e9c3d7787eb71 SMOKE_WRITE=1 BASE_URL=<staging> node scripts/smoke.mjs
+{"result":"pass","buildSha":"799e9c3d7787eb71","storage":"mysql","routes":"demo","roadProvider":"disabled","roadRoutesChecked":0,"wroteFavorite":true,"diagnostics":false}
+
+state_resources=39
+production_key_vault_reference=Resolved
+staging_key_vault_reference=Resolved
+acr_admin_enabled=false
+key_vault_default_action=Deny
+mysql_require_secure_transport=ON
+mysql_tls_version=TLSv1.2
+
+$ terraform -chdir=terraform/app plan -input=false -detailed-exitcode
+No changes. Your infrastructure matches the configuration.
+exit=0
+
+5. FINAL COST-SAFE CLEANUP
+
+$ terraform plan -destroy -out=m8-final-cleanup.tfplan
+delete=38
+resource_groups=[rg-hanoitrip-dev-bd3nfj]
+unexpected_actions=[]
+
+$ terraform apply m8-final-cleanup.tfplan
+Apply complete! Resources: 0 added, 0 changed, 38 destroyed.
+
+app_state_resources=0
+app_resource_group_exists=false
+backend_resource_group_exists=true
+state_container_exists=true
+state_blob_lease=available/unlocked
