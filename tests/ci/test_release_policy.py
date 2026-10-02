@@ -188,6 +188,7 @@ class ReleasePolicyTests(unittest.TestCase):
 
     def test_state_storage_uses_entra_data_plane_and_keeps_queue_logging(self):
         bootstrap = (ROOT / "terraform/bootstrap/main.tf").read_text(encoding="utf-8")
+        terraform_readme = (ROOT / "terraform/README.md").read_text(encoding="utf-8")
         versions = (ROOT / "terraform/bootstrap/versions.tf").read_text(
             encoding="utf-8"
         )
@@ -208,10 +209,16 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertIn(
             'role_definition_name = "Storage Queue Data Contributor"', bootstrap
         )
-        self.assertIn(
-            "terraform.azure.security.storage.storage-queue-services-logging",
-            bootstrap,
-        )
+        self.assertIn("infrastructure_encryption_enabled = true", bootstrap)
+        for finding_id in ("AVD-AZU-0057", "AVD-AZU-0058", "AVD-AZU-0060"):
+            self.assertIn(
+                f"#trivy:ignore:{finding_id}:exp:2027-03-31",
+                bootstrap,
+            )
+        self.assertIn("standalone queue logging", terraform_readme)
+        self.assertIn("accepts LRS", terraform_readme)
+        self.assertIn("Microsoft-managed keys", terraform_readme)
+        self.assertIn("31/03/2027", terraform_readme)
         self.assertIn('variable "state_principal_object_ids"', variables)
 
     def test_migration_uses_reviewed_configuration_not_template_credentials(self):
