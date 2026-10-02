@@ -21,7 +21,8 @@ temporary_vars=$(mktemp "$terraform_dir/.mysql-firewall.XXXXXX.json")
 trap 'rm -f "$temporary_vars"' EXIT HUP INT TERM
 
 jq -n --argjson outbound_ips "$outbound_ips" \
-  '{mysql_app_outbound_ips: $outbound_ips}' >"$temporary_vars"
+  '{mysql_app_outbound_ips: ($outbound_ips | map(select(type == "string" and length > 0)) | unique)}' \
+  >"$temporary_vars"
 mv "$temporary_vars" "$firewall_vars"
 
 echo "Reconciling the App Service outbound addresses into the MySQL firewall."

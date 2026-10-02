@@ -241,6 +241,7 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertIn('variable "mysql_app_outbound_ips"', variables)
         self.assertIn('output "app_outbound_ip_addresses"', outputs)
         self.assertIn("mysql-firewall.auto.tfvars.json", reconcile)
+        self.assertIn('select(type == "string" and length > 0)', reconcile)
         self.assertEqual(reconcile.count('terraform -chdir="$terraform_dir" apply'), 2)
 
     def test_each_web_app_health_check_has_an_eviction_window(self):
