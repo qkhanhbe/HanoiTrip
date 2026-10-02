@@ -244,7 +244,30 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertIn('select(type == "string" and length > 0)', reconcile)
         self.assertIn("state show azurerm_linux_web_app.app", reconcile)
         self.assertIn("MySQL health is ready and build SHA", reconcile)
+        self.assertIn("config/configreferences/appsettings/refresh", reconcile)
+        self.assertIn('all(. == "Resolved")', reconcile)
+        self.assertIn('deadline=$(( $(date +%s) + 600 ))', reconcile)
         self.assertEqual(reconcile.count('terraform -chdir="$terraform_dir" apply'), 2)
+
+    def test_key_vault_references_use_vnet_instead_of_public_egress_ips(self):
+        app = (ROOT / "terraform/app/main.tf").read_text(encoding="utf-8")
+
+        self.assertIn('resource "azurerm_virtual_network" "app"', app)
+        self.assertIn('resource "azurerm_subnet" "app"', app)
+        self.assertIn('service_endpoints    = ["Microsoft.KeyVault"]', app)
+        self.assertEqual(
+            len(
+                re.findall(
+                    r"virtual_network_subnet_id\s*=\s*azurerm_subnet\.app\.id",
+                    app,
+                )
+            ),
+            2,
+        )
+        self.assertEqual(app.count("vnet_route_all_enabled                        = true"), 2)
+        self.assertIn("virtual_network_subnet_ids", app)
+        self.assertNotIn("possible_outbound_ip_address_list", app)
+        self.assertIn('resource "time_sleep" "key_vault_reference_rbac"', app)
 
     def test_each_web_app_health_check_has_an_eviction_window(self):
         app = (ROOT / "terraform/app/main.tf").read_text(encoding="utf-8")

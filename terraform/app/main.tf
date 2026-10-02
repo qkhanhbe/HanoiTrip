@@ -66,6 +66,31 @@ resource "azurerm_resource_group" "app" {
   tags     = var.tags
 }
 
+resource "azurerm_virtual_network" "app" {
+  name                = "vnet-${var.project_name}-${local.suffix}"
+  resource_group_name = azurerm_resource_group.app.name
+  location            = azurerm_resource_group.app.location
+  address_space       = var.vnet_address_space
+  tags                = var.tags
+}
+
+resource "azurerm_subnet" "app" {
+  name                 = "snet-app-service"
+  resource_group_name  = azurerm_resource_group.app.name
+  virtual_network_name = azurerm_virtual_network.app.name
+  address_prefixes     = var.app_subnet_address_prefixes
+  service_endpoints    = ["Microsoft.KeyVault"]
+
+  delegation {
+    name = "app-service"
+
+    service_delegation {
+      name    = "Microsoft.Web/serverFarms"
+      actions = ["Microsoft.Network/virtualNetworks/subnets/action"]
+    }
+  }
+}
+
 resource "azurerm_user_assigned_identity" "app" {
   name                = "id-${var.project_name}-${local.suffix}"
   resource_group_name = azurerm_resource_group.app.name
@@ -156,11 +181,10 @@ resource "azurerm_key_vault" "app" {
   network_acls {
     bypass         = "AzureServices"
     default_action = "Deny"
-    ip_rules = distinct(concat(
-      var.allowed_ip_cidrs,
-      azurerm_linux_web_app.app.possible_outbound_ip_address_list,
-      azurerm_linux_web_app_slot.staging.possible_outbound_ip_address_list,
-    ))
+    ip_rules       = var.allowed_ip_cidrs
+    virtual_network_subnet_ids = [
+      azurerm_subnet.app.id,
+    ]
   }
 
 }
@@ -238,6 +262,7 @@ resource "azurerm_linux_web_app" "app" {
   https_only                      = true
   app_settings                    = local.app_settings
   key_vault_reference_identity_id = azurerm_user_assigned_identity.app.id
+  virtual_network_subnet_id       = azurerm_subnet.app.id
   tags                            = var.tags
 
   identity {
@@ -255,6 +280,7 @@ resource "azurerm_linux_web_app" "app" {
     http2_enabled                                 = true
     minimum_tls_version                           = "1.2"
     scm_minimum_tls_version                       = "1.2"
+    vnet_route_all_enabled                        = true
     ip_restriction_default_action                 = "Deny"
     scm_ip_restriction_default_action             = "Deny"
 
@@ -281,6 +307,7 @@ resource "azurerm_linux_web_app_slot" "staging" {
   app_service_id                  = azurerm_linux_web_app.app.id
   app_settings                    = local.app_settings
   key_vault_reference_identity_id = azurerm_user_assigned_identity.app.id
+  virtual_network_subnet_id       = azurerm_subnet.app.id
   tags                            = var.tags
 
   identity {
@@ -298,6 +325,7 @@ resource "azurerm_linux_web_app_slot" "staging" {
     http2_enabled                                 = true
     minimum_tls_version                           = "1.2"
     scm_minimum_tls_version                       = "1.2"
+    vnet_route_all_enabled                        = true
     ip_restriction_default_action                 = "Deny"
     scm_ip_restriction_default_action             = "Deny"
 
@@ -361,6 +389,7 @@ resource "azapi_resource" "production_main_container" {
     azurerm_key_vault_secret.mysql_password,
     terraform_data.bootstrap_image,
     time_sleep.acr_pull_rbac,
+    time_sleep.key_vault_reference_rbac,
   ]
 
   lifecycle {
@@ -388,6 +417,7 @@ resource "azapi_resource" "staging_main_container" {
     azurerm_key_vault_secret.mysql_password,
     terraform_data.bootstrap_image,
     time_sleep.acr_pull_rbac,
+    time_sleep.key_vault_reference_rbac,
   ]
 
   lifecycle {
@@ -411,6 +441,14 @@ resource "azurerm_role_assignment" "app_key_vault_secrets_user" {
   scope                = azurerm_key_vault.app.id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = azurerm_user_assigned_identity.app.principal_id
+}
+
+resource "time_sleep" "key_vault_reference_rbac" {
+  depends_on = [
+    azurerm_key_vault_secret.mysql_password,
+    azurerm_role_assignment.app_key_vault_secrets_user,
+  ]
+  create_duration = "60s"
 }
 
 resource "azurerm_mysql_flexible_server_firewall_rule" "app_outbound" {

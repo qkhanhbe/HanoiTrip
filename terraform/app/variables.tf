@@ -29,6 +29,28 @@ variable "allowed_ip_cidrs" {
   }
 }
 
+variable "vnet_address_space" {
+  type        = list(string)
+  default     = ["10.20.0.0/16"]
+  description = "Address space for App Service outbound integration."
+
+  validation {
+    condition     = length(var.vnet_address_space) > 0 && alltrue([for cidr in var.vnet_address_space : can(cidrhost(cidr, 0))])
+    error_message = "Provide at least one valid VNet CIDR."
+  }
+}
+
+variable "app_subnet_address_prefixes" {
+  type        = list(string)
+  default     = ["10.20.1.0/24"]
+  description = "Dedicated delegated subnet used by production and staging for Key Vault access."
+
+  validation {
+    condition     = length(var.app_subnet_address_prefixes) > 0 && alltrue([for cidr in var.app_subnet_address_prefixes : can(cidrhost(cidr, 0))])
+    error_message = "Provide at least one valid subnet CIDR."
+  }
+}
+
 variable "mysql_app_outbound_ips" {
   type        = set(string)
   default     = []
