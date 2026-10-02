@@ -29,3 +29,11 @@ output "app_identity" {
     principal_id = azurerm_user_assigned_identity.app.principal_id
   }
 }
+
+output "app_outbound_ip_addresses" {
+  description = "Production and staging outbound IPv4 addresses to reconcile into the MySQL firewall on the second apply."
+  value = sort(distinct(concat(
+    azurerm_linux_web_app.app.outbound_ip_address_list,
+    azurerm_linux_web_app_slot.staging.outbound_ip_address_list,
+  )))
+}

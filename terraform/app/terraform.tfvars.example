@@ -1,6 +1,7 @@
 location                     = "eastasia"
 environment                  = "dev"
 allowed_ip_cidrs             = ["203.0.113.10/32"] # Replace with your public IP.
+# mysql_app_outbound_ips is generated locally after the first apply; do not copy it here.
 alert_email                  = "intern@example.com"
 routes_mode                  = "demo"
 road_provider                = "disabled" # Set vietmap only after the Key Vault secret exists.
