@@ -29,6 +29,14 @@ then creates the private container and queue logging policy. Supply additional
 CI identity object IDs through `state_principal_object_ids`; do not create these
 assignments manually in the Portal.
 
+Key Vault remains default-deny. App Service production and staging integrate
+with a dedicated delegated subnet that has the `Microsoft.KeyVault` service
+endpoint, and the vault allows that subnet. Key Vault references must not rely
+on App Service public outbound IPs because Azure can resolve a secret from a
+different source address. The wrapper retries the supported reference refresh
+API after the firewall apply, restarts both sites, and uses bounded readiness
+deadlines.
+
 App Service outbound addresses are unknown until Azure creates the app and its
 staging slot, while Terraform requires MySQL firewall instance keys during
 planning. `scripts/terraform/apply-app.sh` therefore performs two normal,
