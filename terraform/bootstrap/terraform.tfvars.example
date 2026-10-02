@@ -2,3 +2,6 @@ location             = "eastasia"
 resource_group_name  = "rg-hanoitrip-tfstate"
 storage_account_name = "sthanoitripreplace"
 allowed_ip_cidrs     = ["203.0.113.10/32"] # Replace with your public IP.
+
+# Optional: object IDs for CI identities that read/write remote state.
+# state_principal_object_ids = ["00000000-0000-0000-0000-000000000000"]
