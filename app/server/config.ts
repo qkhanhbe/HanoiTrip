@@ -12,6 +12,10 @@ const envSchema = z.object({
   ROUTES_MODE: z.enum(['demo', 'google']).default('demo'),
   ROAD_PROVIDER: z.enum(['disabled', 'vietmap']).default('disabled'),
   DB_MODE: z.enum(['memory', 'mysql']).default('memory'),
+  DB_MIGRATE_ON_START: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
   DIAGNOSTICS_ENABLED: z
     .enum(['true', 'false'])
     .default('false')

@@ -8,7 +8,7 @@ COPY public ./public
 RUN npm run build && npm prune --omit=dev
 
 FROM debian@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a AS runtime-security
-RUN apt-get update \
+RUN apt-get -o Acquire::ForceIPv4=true update \
     && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends --only-upgrade -y libssl3t64=3.5.7-1~deb13u3 \
     && mkdir -p /patched-dpkg \
     && dpkg-query -s libssl3t64 > /patched-dpkg/libssl3t64 \

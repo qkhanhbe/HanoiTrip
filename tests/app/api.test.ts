@@ -304,6 +304,11 @@ describe('HTTP contracts', () => {
   });
 });
 describe('configuration safeguards', () => {
+  it('keeps startup migration opt-in', () => {
+    expect(readConfig({}).DB_MIGRATE_ON_START).toBe(false);
+    expect(readConfig({ DB_MIGRATE_ON_START: 'true' }).DB_MIGRATE_ON_START).toBe(true);
+    expect(() => readConfig({ DB_MIGRATE_ON_START: 'yes' })).toThrow('DB_MIGRATE_ON_START');
+  });
   it('requires separate live keys and verified production DB TLS', () => {
     expect(() => readConfig({ ROUTES_MODE: 'google' })).toThrow('separate');
     expect(() => readConfig({ ROAD_PROVIDER: 'vietmap' })).toThrow('VIETMAP_API_KEY');

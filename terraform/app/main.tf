@@ -10,16 +10,36 @@ resource "random_password" "mysql_admin" {
 }
 
 locals {
-  suffix         = "${var.environment}-${random_string.suffix.result}"
-  compact_name   = "${var.project_name}${var.environment}${random_string.suffix.result}"
-  key_vault_name = "kv-${local.compact_name}"
+  suffix          = "${var.environment}-${random_string.suffix.result}"
+  compact_name    = "${var.project_name}${var.environment}${random_string.suffix.result}"
+  key_vault_name  = "kv-${local.compact_name}"
+  repository_root = abspath("${path.module}/../..")
+  bootstrap_source_files = sort(distinct(concat(
+    tolist(fileset(local.repository_root, "app/**")),
+    tolist(fileset(local.repository_root, "public/**")),
+    [
+      "Dockerfile",
+      "index.html",
+      "package-lock.json",
+      "package.json",
+      "tsconfig.json",
+      "tsconfig.server.json",
+      "vite.config.ts",
+    ],
+  )))
+  bootstrap_source_sha = sha256(join("", [
+    for source_file in local.bootstrap_source_files :
+    filesha256("${local.repository_root}/${source_file}")
+  ]))
+  bootstrap_image_tag = substr(local.bootstrap_source_sha, 0, 16)
   common_app_settings = {
     WEBSITES_PORT       = "8080"
     NODE_ENV            = "production"
     HOST                = "0.0.0.0"
     PORT                = "8080"
-    BUILD_SHA           = "bootstrap"
+    BUILD_SHA           = local.bootstrap_image_tag
     DB_MODE             = "mysql"
+    DB_MIGRATE_ON_START = "true"
     MYSQL_HOST          = azurerm_mysql_flexible_server.db.fqdn
     MYSQL_PORT          = "3306"
     MYSQL_DATABASE      = azurerm_mysql_flexible_database.app.name
@@ -60,6 +80,47 @@ resource "azurerm_container_registry" "app" {
   sku                 = "Basic"
   admin_enabled       = false
   tags                = var.tags
+}
+
+# The first image is application delivery rather than infrastructure, but M8
+# requires a single unattended Terraform apply to leave a runnable stack. The
+# subscription blocks ACR Tasks, so local Docker builds the reviewed context and
+# Azure CLI obtains short-lived ACR authentication; no registry password,
+# source token or Portal action is required.
+resource "terraform_data" "bootstrap_image" {
+  triggers_replace = [
+    azurerm_container_registry.app.id,
+    local.bootstrap_source_sha,
+  ]
+
+  provisioner "local-exec" {
+    working_dir = local.repository_root
+    interpreter = ["/bin/bash", "-c"]
+    environment = {
+      ACR_LOGIN_SERVER = azurerm_container_registry.app.login_server
+      ACR_NAME         = azurerm_container_registry.app.name
+      BUILD_SHA        = local.bootstrap_image_tag
+      IMAGE_REPOSITORY = var.bootstrap_image_repository
+    }
+    command = <<-EOT
+      set -euo pipefail
+      command -v az >/dev/null
+      command -v docker >/dev/null
+      for attempt in 1 2 3; do
+        if az acr login --name "$ACR_NAME"; then
+          break
+        fi
+        if [ "$attempt" = 3 ]; then
+          echo "ACR login failed after three attempts." >&2
+          exit 1
+        fi
+        sleep 5
+      done
+      image="$ACR_LOGIN_SERVER/$IMAGE_REPOSITORY:$BUILD_SHA"
+      docker build --network=host --build-arg "BUILD_SHA=$BUILD_SHA" --tag "$image" .
+      docker push "$image"
+    EOT
+  }
 }
 
 resource "azurerm_service_plan" "app" {
@@ -287,14 +348,20 @@ resource "azapi_resource" "production_main_container" {
   parent_id = azurerm_linux_web_app.app.id
   body = {
     properties = {
-      authType   = "Anonymous"
-      image      = var.initial_image
-      isMain     = true
-      targetPort = "8080"
+      authType                    = "UserAssigned"
+      image                       = "${azurerm_container_registry.app.login_server}/${var.bootstrap_image_repository}:${local.bootstrap_image_tag}"
+      isMain                      = true
+      targetPort                  = "8080"
+      userManagedIdentityClientId = azurerm_user_assigned_identity.app.client_id
     }
   }
 
-  depends_on = [azapi_update_resource.app_sitecontainers_mode]
+  depends_on = [
+    azapi_update_resource.app_sitecontainers_mode,
+    azurerm_key_vault_secret.mysql_password,
+    terraform_data.bootstrap_image,
+    time_sleep.acr_pull_rbac,
+  ]
 
   lifecycle {
     # CD owns the immutable image and switches auth to the shared UAMI.
@@ -308,14 +375,20 @@ resource "azapi_resource" "staging_main_container" {
   parent_id = azurerm_linux_web_app_slot.staging.id
   body = {
     properties = {
-      authType   = "Anonymous"
-      image      = var.initial_image
-      isMain     = true
-      targetPort = "8080"
+      authType                    = "UserAssigned"
+      image                       = "${azurerm_container_registry.app.login_server}/${var.bootstrap_image_repository}:${local.bootstrap_image_tag}"
+      isMain                      = true
+      targetPort                  = "8080"
+      userManagedIdentityClientId = azurerm_user_assigned_identity.app.client_id
     }
   }
 
-  depends_on = [azapi_update_resource.staging_sitecontainers_mode]
+  depends_on = [
+    azapi_update_resource.staging_sitecontainers_mode,
+    azurerm_key_vault_secret.mysql_password,
+    terraform_data.bootstrap_image,
+    time_sleep.acr_pull_rbac,
+  ]
 
   lifecycle {
     # CD owns the immutable image and switches auth to the shared UAMI.
@@ -327,6 +400,11 @@ resource "azurerm_role_assignment" "app_acr_pull" {
   scope                = azurerm_container_registry.app.id
   role_definition_name = "AcrPull"
   principal_id         = azurerm_user_assigned_identity.app.principal_id
+}
+
+resource "time_sleep" "acr_pull_rbac" {
+  depends_on      = [azurerm_role_assignment.app_acr_pull]
+  create_duration = "30s"
 }
 
 resource "azurerm_role_assignment" "app_key_vault_secrets_user" {

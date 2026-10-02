@@ -58,6 +58,7 @@ Sao chép và điều chỉnh [.env.example](.env.example). Không commit API ke
 | Biến                                                       | Mục đích                                                           |
 | ---------------------------------------------------------- | ------------------------------------------------------------------ |
 | `DB_MODE`                                                  | Chọn chế độ lưu dữ liệu; dùng `mysql` cho chức năng lưu hành trình |
+| `DB_MIGRATE_ON_START`                                      | Tự tạo schema idempotent khi khởi động; mặc định tắt               |
 | `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER` | Thông tin kết nối MySQL                                            |
 | `MYSQL_PASSWORD`                                           | Mật khẩu của tài khoản ứng dụng                                    |
 | `MYSQL_TLS`, `MYSQL_CA_FILE`                               | Cấu hình kết nối TLS tùy môi trường                                |

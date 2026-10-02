@@ -242,6 +242,8 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertIn('output "app_outbound_ip_addresses"', outputs)
         self.assertIn("mysql-firewall.auto.tfvars.json", reconcile)
         self.assertIn('select(type == "string" and length > 0)', reconcile)
+        self.assertIn("state show azurerm_linux_web_app.app", reconcile)
+        self.assertIn("MySQL health is ready and build SHA", reconcile)
         self.assertEqual(reconcile.count('terraform -chdir="$terraform_dir" apply'), 2)
 
     def test_each_web_app_health_check_has_an_eviction_window(self):
@@ -251,6 +253,21 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertEqual(
             app.count("health_check_eviction_time_in_min             = 2"), 2
         )
+
+    def test_greenfield_apply_builds_a_runnable_uami_image(self):
+        app = (ROOT / "terraform/app/main.tf").read_text(encoding="utf-8")
+        config = (ROOT / "app/server/config.ts").read_text(encoding="utf-8")
+        dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+
+        self.assertIn('resource "terraform_data" "bootstrap_image"', app)
+        self.assertIn('az acr login --name "$ACR_NAME"', app)
+        self.assertIn('docker push "$image"', app)
+        self.assertEqual(app.count('authType                    = "UserAssigned"'), 2)
+        self.assertEqual(app.count("userManagedIdentityClientId"), 2)
+        self.assertIn('DB_MIGRATE_ON_START = "true"', app)
+        self.assertIn("DB_MIGRATE_ON_START", config)
+        self.assertIn("Acquire::ForceIPv4=true", dockerfile)
+        self.assertNotIn("appsvc/staticsite", app)
 
 
 if __name__ == "__main__":
