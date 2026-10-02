@@ -223,6 +223,26 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertNotIn("MYSQL_USER: hanoiadmin", self.workflow)
         self.assertNotIn("--name mysql-admin-password", self.workflow)
 
+    def test_mysql_firewall_uses_plan_time_inputs_and_automated_reconciliation(self):
+        app = (ROOT / "terraform/app/main.tf").read_text(encoding="utf-8")
+        variables = (ROOT / "terraform/app/variables.tf").read_text(
+            encoding="utf-8"
+        )
+        outputs = (ROOT / "terraform/app/outputs.tf").read_text(encoding="utf-8")
+        reconcile = (ROOT / "scripts/terraform/apply-app.sh").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("for_each = var.mysql_app_outbound_ips", app)
+        self.assertNotIn(
+            "for_each = toset(concat(\n    azurerm_linux_web_app.app.outbound_ip_address_list",
+            app,
+        )
+        self.assertIn('variable "mysql_app_outbound_ips"', variables)
+        self.assertIn('output "app_outbound_ip_addresses"', outputs)
+        self.assertIn("mysql-firewall.auto.tfvars.json", reconcile)
+        self.assertEqual(reconcile.count('terraform -chdir="$terraform_dir" apply'), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

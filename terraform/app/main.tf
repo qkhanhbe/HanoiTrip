@@ -334,10 +334,11 @@ resource "azurerm_role_assignment" "app_key_vault_secrets_user" {
 }
 
 resource "azurerm_mysql_flexible_server_firewall_rule" "app_outbound" {
-  for_each = toset(concat(
-    azurerm_linux_web_app.app.outbound_ip_address_list,
-    azurerm_linux_web_app_slot.staging.outbound_ip_address_list,
-  ))
+  # App Service reports these addresses only after it exists. Feeding the first
+  # apply's output back as an input keeps resource instance keys known at plan
+  # time while the wrapper script still performs the process without Portal work.
+  for_each = var.mysql_app_outbound_ips
+
   name                = "app-${replace(each.value, ".", "-")}"
   resource_group_name = azurerm_resource_group.app.name
   server_name         = azurerm_mysql_flexible_server.db.name
