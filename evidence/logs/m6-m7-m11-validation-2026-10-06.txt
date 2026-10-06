@@ -1,0 +1,52 @@
+HanoiTrip M6/M7/M11 cloud validation — 2026-10-06
+Scope: disposable greenfield test stack; identifiers and IP addresses redacted.
+
+[Terraform recovery and convergence]
+Apply complete! Resources: 4 added, 0 changed, 0 destroyed.
+Verified production: HTTP 200, MySQL ready, expected build SHA.
+Verified staging: HTTP 200, MySQL ready, expected build SHA.
+Plan result: No changes. PLAN_EXIT=0.
+MySQL firewall rule count: 4 (App Service outbound addresses only).
+
+[M6 access restrictions]
+Production: site default=Deny, SCM default=Deny, allow rules=1.
+Staging: site default=Deny, SCM default=Deny, allow rules=1.
+Allowed source -> /health HTTP 200.
+Temporary external ACI source -> /health HTTP 403.
+Temporary ACI deleted and absence confirmed.
+
+[M7 autoscale and cost]
+Autoscale enabled=true; minimum=1; default=1; maximum=2.
+Scale out: CpuPercentage > 70 over PT5M; increase by 1; cooldown PT5M.
+Scale in: CpuPercentage < 35 over PT10M; decrease by 1; cooldown PT10M.
+Azure Cost Management ActualCost MonthToDate total for returned HanoiTrip groups:
+15.8304021774 USD. The new test resource group had not appeared yet because
+billing data is delayed.
+
+[M11 diagnostics, dashboard and alerts]
+Dashboard title: HanoiTrip operations.
+Dashboard parts: 10 (overview + 9 metric charts).
+Metrics: Requests, AverageResponseTime, Http5xx, CpuPercentage,
+MemoryPercentage, HttpQueueLength, cpu_percent, active_connections,
+storage_percent.
+Enabled alerts: 3; every alert has one action group action.
+Action group: enabled; email receivers=1.
+Structured console-log window: total=199; JSON-like=69; requestId=55;
+buildSha=67; durationMs=55.
+
+Controlled failure metric:
+2026-10-06T07:53:00Z Http5xx Total=19.
+Alert hanoitrip-http-5xx: Fired at 2026-10-06T07:55:55Z (Sev1).
+Recovery completed with Terraform and both endpoints returned HTTP 200.
+Alert hanoitrip-http-5xx: Resolved at 2026-10-06T08:02:54Z.
+
+[Cleanup]
+Reviewed saved destroy plan: 0 add, 0 change, 39 destroy; one test resource
+group only; backend resources absent from plan.
+Apply complete: 0 added, 0 changed, 39 destroyed.
+Test resource group exists=false; temporary ACI count=0; Terraform state
+resources=0. Backend resource group and container remain, Shared Key remains
+disabled, and the empty state blob is absent (therefore no lease/lock remains).
+
+No token, password, email address, subscription ID, client IP, outbound IP,
+principal ID, secret URI, or Terraform state content is included in this file.

@@ -1,6 +1,6 @@
 # Tiến độ và kế hoạch tiếp theo
 
-Cập nhật: **02/10/2026**
+Cập nhật: **06/10/2026**
 
 Tài liệu này ghi lại điểm dừng kỹ thuật hiện tại để phiên làm việc tiếp theo có
 thể tiếp tục mà không phải dựng lại hoặc audit lại các phần đã hoàn thành.
@@ -22,40 +22,37 @@ Trạng thái chi tiết theo từng mốc nằm trong [`../evidence/README.md`]
   - Plan cuối hội tụ `No changes`.
   - Saved destroy plan đã được review trước khi cleanup; toàn bộ app stack thử
     nghiệm đã bị xóa để không phát sinh chi phí qua đêm.
+- M6 đạt kỹ thuật trên stack test greenfield: production và staging default-deny;
+  nguồn được phép trả 200, ACI ngoài allowlist trả 403 và ACI đã được cleanup.
+- M7 đạt kỹ thuật về cấu hình/chi phí: S1 + B1ms, autoscale live min 1/max 2,
+  retention 30 ngày và Actual Cost tháng hiện tại đã được truy vấn từ Azure Cost
+  Management.
+- M11 đạt phần kỹ thuật cloud: dashboard Azure Monitor bằng Terraform, Log
+  Analytics/KQL, ba metric alert và action group live. HTTP 5xx alert đã được
+  trigger thật rồi tự Resolved sau khi khôi phục firewall bằng Terraform.
+- Stack M6/M7/M11 được teardown bằng saved plan đã review: 39 destroy, không có
+  add/change và không chứa backend. Resource group test và ACI probe đều không còn.
 - Bộ kiểm tra local trên Node `22.23.2` đạt: format, lint, typecheck, 41 test và
   production build. MySQL integration test được skip khi không bật `MYSQL_TEST`.
 
 Evidence M8: [`../evidence/M8.md`](../evidence/M8.md) và
 [`../evidence/logs/m8-terraform-rebuild-2026-10-02.txt`](../evidence/logs/m8-terraform-rebuild-2026-10-02.txt).
+Evidence mới: [`../evidence/M6.md`](../evidence/M6.md),
+[`../evidence/M7.md`](../evidence/M7.md), [`../evidence/M11.md`](../evidence/M11.md)
+và [`../evidence/logs/m6-m7-m11-validation-2026-10-06.txt`](../evidence/logs/m6-m7-m11-validation-2026-10-06.txt).
 
 ## Trạng thái cloud tại điểm dừng
 
-- Không còn resource group của app stack M8.
+- Không còn resource group của app stack M8 hoặc stack test M6/M7/M11.
 - Backend Terraform `rg-hanoitrip-tfstate` được giữ lại theo lifecycle riêng.
-- State container vẫn tồn tại; state blob ở trạng thái `available/unlocked`.
-- Không cần dựng lại app stack chỉ để kiểm tra M8 hoặc chụp thêm Portal.
+- State container vẫn tồn tại; state blob không còn sau khi state rỗng, vì vậy
+  không có lease/lock treo.
+- Sandbox cũ ngoài Terraform state vẫn tồn tại và không bị thao tác trong phiên.
+- Không cần dựng lại app stack chỉ để kiểm tra M6/M7/M8/M11 hoặc chụp thêm Portal.
 
 ## Kế hoạch tiếp theo
 
-### 1. Hoàn thiện access restriction, autoscale và monitoring
-
-Mục tiêu: chốt M6, tạo nền cho M7 và M11 trong cùng một lượt triển khai có kiểm
-soát.
-
-- Đưa production và staging về default-deny với allowlist tối thiểu.
-- Kiểm tra truy cập từ một IP được phép và một mạng không được phép.
-- Xác nhận autoscale min `1`, max `2`; chạy load ngắn và thu metric scale-out/
-  scale-in.
-- Xác nhận Log Analytics, diagnostic settings, action group và ba metric alert.
-- Trigger một alert có kiểm soát, lưu fired alert và email, rồi tắt tải/diagnostic
-  thử nghiệm không còn cần thiết.
-- Export Cost Analysis thật sau khi dữ liệu billing xuất hiện và cập nhật
-  `cost-report.md`.
-
-Điều kiện hoàn tất: có log/screenshot redacted cho M6, M7 và M11; không để tài
-nguyên thử nghiệm hoặc tải giả chạy qua đêm.
-
-### 2. Hoàn thiện CI gate
+### 1. Hoàn thiện CI gate
 
 Mục tiêu: chốt M9 mà không đưa secret hoặc code lỗi vào `main`.
 
@@ -67,7 +64,7 @@ Mục tiêu: chốt M9 mà không đưa secret hoặc code lỗi vào `main`.
 Điều kiện hoàn tất: đủ hai negative evidence, một positive evidence và artifact
 plan; mọi nhánh thử lỗi đều bị đóng, không merge.
 
-### 3. Diễn tập release, zero downtime và rollback
+### 2. Diễn tập release, zero downtime và rollback
 
 Mục tiêu: chốt M2 và M10 sau khi pipeline production được phê duyệt.
 
@@ -79,7 +76,7 @@ Mục tiêu: chốt M2 và M10 sau khi pipeline production được phê duyệt
 Điều kiện hoàn tất: có một release log end-to-end và một rollback log; không có
 request lỗi trong cửa sổ quan sát.
 
-### 4. Kiểm tra thu hồi quyền Key Vault
+### 3. Kiểm tra thu hồi quyền Key Vault
 
 Mục tiêu: chốt M5 trong cửa sổ ngắn, sau khi các evidence khác đã thu đủ.
 
@@ -92,8 +89,10 @@ thái lỗi.
 
 ## Blocker và phụ thuộc
 
-- M8 không còn blocker kỹ thuật.
-- M7 phụ thuộc vào thời điểm Azure Cost Analysis cập nhật dữ liệu chi phí thật.
+- M6/M7/M8 không còn blocker kỹ thuật. M7 chỉ còn evidence scale-out thực tế nếu
+  người chấm yêu cầu hành vi thay vì cấu hình autoscale live.
+- M11 còn screenshot dashboard/alerts và xác nhận email Fired/Resolved từ người
+  dùng; transcript cloud đã có.
 - M2/M10 cần chủ động bật bước production swap trong một cửa sổ được phê duyệt.
 - M5 cố ý gây lỗi tạm thời nên chỉ thực hiện sau cùng và phải có sẵn lệnh khôi
   phục quyền.

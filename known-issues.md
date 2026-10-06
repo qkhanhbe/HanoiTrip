@@ -2,11 +2,10 @@
 
 ## Các phần cần kiểm chứng triển khai
 
-- Chưa `terraform apply/destroy`, chưa có remote state/lock evidence và chưa kiểm chứng tên SKU/metric tại subscription thực tế.
-- Stack Portal hiện tại chưa có Terraform state. Cấu hình đã dùng cùng mô hình UAMI/RBAC/sitecontainers, nhưng tên live chưa được import và chưa có zero-change plan.
+- Greenfield Terraform rebuild, remote state/lock, zero-change plan và cleanup đã được kiểm chứng. Sandbox cũ tạo ngoài state vẫn chưa được import; không quản lý hoặc xóa nhầm bằng stack greenfield.
 - CD đã build/push/deploy staging thành công; production swap vẫn khóa nên chưa có run staging → swap → rollback và raw zero-downtime log.
 - Terraform plan job chỉ tạo artifact khi OIDC/backend được cấu hình; run hiện tại chỉ có fmt/validate.
-- Dashboard, KQL schema, email action group và alert thật chưa được kích hoạt. Không bật Application Insights do yêu cầu monitoring hiện ghi rõ không dùng.
+- Dashboard, KQL, action group và ba alert đã được kích hoạt trên stack test; alert HTTP 5xx đã Fired/Resolved. Còn screenshot dashboard/alerts và email nhận được cho bộ evidence cuối.
 - Google Routes/Google Maps live chưa có key và chưa test coverage transit Hà Nội; UI đang ghi rõ route demo.
 - VIETMAP adapter và contract tests đã có; staging đã chạy Search/Place/Route thật nhưng vẫn thiếu quota/điều khoản cache-attribution evidence và production chưa swap bản này.
 
@@ -15,6 +14,8 @@
 - GitHub chạy app CI/CD với npm public; GitLab dành cho review/scan, không deploy.
   GitLab image scan chưa nối nguồn image; xem [phạm vi GitLab](docs/ci-gitlab.md).
 - Production swap vẫn khóa đến khi poller chứng minh tuyệt đối 0 non-200 và rollback được diễn tập.
+- Autoscale min 1/max 2 đã active; chưa có evidence hành vi scale-out lên 2 rồi scale-in về 1.
+- Cost Management đã trả Actual Cost tháng hiện tại, nhưng stack test mới chưa xuất hiện do độ trễ billing.
 
 - Trivy IaC hiện còn Medium/Low: MySQL public endpoint có firewall, App Service authentication chưa bật, storage state dùng LRS/không CMK và một số hardening phụ. Gate theo đề chỉ chặn secret/High/Critical; warnings vẫn phải review.
 - Policy SCA GitHub tạm chặn HIGH/CRITICAL vì không có TI blacklist/component nội bộ từ GitLab để tái tạo chính xác.

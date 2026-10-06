@@ -1,6 +1,6 @@
 # Evidence index
 
-Audit gần nhất: **02/10/2026**. Trạng thái dưới đây phân biệt rõ:
+Audit gần nhất: **06/10/2026**. Trạng thái dưới đây phân biệt rõ:
 
 - **Đạt kỹ thuật:** trạng thái live đã được kiểm tra bằng lệnh đọc.
 - **Một phần:** đã có code hoặc một phần hạ tầng nhưng chưa đạt đủ điều kiện bắt buộc.
@@ -17,14 +17,14 @@ Không dùng output local thay cho bằng chứng cloud. Screenshot và log nộ
 | M3  | Một phần     | `/health` và `GET /items` live hoạt động với MySQL/TLS. Firewall có 4 outbound IP của App Service nhưng vẫn còn 3 rule IP client cũ.              |
 | M4  | Đạt kỹ thuật | Managed identity có `AcrPull` và `Key Vault Secrets User`; app settings nhạy cảm dùng Key Vault reference.                                        |
 | M5  | Một phần     | Secret và reference đã có; chưa thực hiện phép thử thu hồi quyền MI làm app lỗi rồi cấp lại quyền để phục hồi.                                    |
-| M6  | Chưa đạt     | Staging default-deny và whitelist đúng; production hiện còn rule `Allow all`.                                                                     |
-| M7  | Chưa đạt     | Live đang dùng App Service S1 và MySQL B1ms, nhưng chưa có autoscale live và chưa có số liệu Cost Analysis thật.                                  |
+| M6  | Đạt kỹ thuật | Stack test greenfield: production/staging default-deny; nguồn allow trả 200, ACI ngoài allowlist trả 403 và đã cleanup.                            |
+| M7  | Đạt kỹ thuật | S1/B1ms; autoscale live min 1/max 2; retention 30 ngày; Cost Management ActualCost tháng hiện tại đã được ghi nhận.                                |
 | M8  | Đạt kỹ thuật | Backend Entra + locking đã kiểm chứng; greenfield `destroy → apply` dựng môi trường chạy được, CRUD/no-change đạt và cleanup cuối phiên hoàn tất. |
 | M9  | Một phần     | CI và branch protection đang hoạt động; thiếu hai bằng chứng negative bắt buộc và Terraform plan thật vẫn chưa được tạo.                          |
 | M10 | Một phần     | Main đã build/scan/push và triển khai staging thành công; production swap đang tắt nên chưa có run end-to-end.                                    |
-| M11 | Chưa đạt     | Chưa có workspace, diagnostic setting, action group hoặc metric alert live; provider `Microsoft.Insights` đang `NotRegistered`.                   |
+| M11 | Một phần     | Dashboard/KQL/diagnostics/3 alert live; HTTP 5xx đã Fired rồi Resolved thật. Còn screenshot dashboard/alert và email nhận được.                    |
 
-Theo chuẩn chấm nghiêm ngặt, **chưa thể tuyên bố hoàn tất M1–M11**. M1, M4 và M8 đã đạt trạng thái kỹ thuật nhưng vẫn nên bổ sung ảnh Portal hoặc log redacted vào đúng file trước khi nộp.
+Theo chuẩn chấm nghiêm ngặt, **chưa thể tuyên bố hoàn tất M1–M11**. M1, M4, M6, M7 và M8 đã đạt trạng thái kỹ thuật; M11 còn evidence hình ảnh/email và các mốc khác vẫn còn gap ghi bên dưới.
 
 ## Evidence cần bổ sung
 
@@ -64,17 +64,15 @@ Theo chuẩn chấm nghiêm ngặt, **chưa thể tuyên bố hoàn tất M1–M
 
 ### M6 — IP whitelist
 
-- Đổi production sang default-deny trước khi thử.
-- `curl` từ IP được whitelist trả 200.
-- `curl` từ hotspot hoặc máy khác không nằm trong whitelist trả 403.
-- Screenshot access restrictions của cả production và staging; xác nhận không còn rule runner tạm.
+- Đã kiểm chứng production/staging default-deny, nguồn được phép trả 200 và ACI ngoài allowlist trả 403.
+- ACI kiểm thử đã bị xóa và Terraform hội tụ sau khi khôi phục firewall.
+- Còn screenshot access restrictions của cả production và staging cho báo cáo cuối.
 
 ### M7 — chi phí
 
-- Tạo autoscale live với min 1, max 2 và lưu screenshot rule.
-- Chạy load ngắn, chụp instance count tăng nhưng không vượt 2 rồi giảm lại.
-- Export hoặc screenshot Cost Analysis theo resource group, có khoảng thời gian, currency và tổng chi phí thật.
-- Điền số liệu thật và ba biện pháp tiết kiệm vào [`cost-report.md`](../cost-report.md).
+- Đã kiểm chứng autoscale live min 1/max 2 và hai rule CPU.
+- Đã truy vấn Actual Cost tháng hiện tại theo resource group và cập nhật [`cost-report.md`](../cost-report.md).
+- Có thể bổ sung screenshot autoscale/Cost Analysis; nếu người chấm yêu cầu hành vi scale thật, chạy load ngắn và chụp instance count tăng rồi giảm.
 
 ### M8 — Terraform
 
@@ -100,16 +98,14 @@ Theo chuẩn chấm nghiêm ngặt, **chưa thể tuyên bố hoàn tất M1–M
 
 ### M11 — monitoring
 
-- Đăng ký provider cần thiết rồi apply workspace, diagnostic settings, action group và 3 alerts.
-- Screenshot dashboard không dùng Application Insights: response time, request rate, failure rate; CPU, memory, HTTP queue; MySQL CPU, connections, storage.
-- Lưu KQL và kết quả log thật có request ID/build SHA/status/duration.
-- Screenshot ba alert active và action group email.
-- Bật diagnostics có kiểm soát, trigger ít nhất một alert thật, lưu fired alert và email nhận được, sau đó tắt diagnostics.
+- Đã apply workspace, diagnostic settings, action group, ba alert và dashboard Azure Monitor không dùng Application Insights.
+- Đã lưu KQL/kết quả log có request ID/build SHA/status/duration.
+- Đã trigger HTTP 5xx alert thật, khôi phục dịch vụ và xác nhận alert tự Resolved.
+- Còn screenshot dashboard, ba alert active và email Fired/Resolved đã nhận.
 
 ## Thứ tự hoàn thiện hợp lý
 
-1. Đồng bộ Terraform với stack live và hoàn thành M8 trước; đây là nền cho M6, M7 và M11.
-2. Hoàn thiện M6, autoscale và monitoring; sau đó thu M7/M11 evidence.
-3. Hoàn thiện negative CI evidence và Terraform plan thật cho M9.
-4. Sửa observer zero-downtime, diễn tập rollback, rồi mới bật một production swap để chốt M2/M10.
-5. Thực hiện phép thử thu hồi quyền vault ở cuối cùng, trong một cửa sổ ngắn, để chốt M5 mà không làm gián đoạn các bước khác.
+1. Chụp nốt screenshot/email cho M6/M7/M11 khi có cửa sổ dựng stack hoặc dùng evidence hiện có nếu người chấm chấp nhận transcript.
+2. Hoàn thiện negative CI evidence và Terraform plan artifact cho M9.
+3. Sửa observer zero-downtime, diễn tập rollback, rồi mới bật một production swap để chốt M2/M10.
+4. Thực hiện phép thử thu hồi quyền vault ở cuối cùng, trong một cửa sổ ngắn, để chốt M5 mà không làm gián đoạn các bước khác.
