@@ -98,15 +98,21 @@ cần thiết vào evidence được track. Script không nhận hoặc in API k
 
 ## Kết quả gần nhất
 
-08/10/2026, nhánh `docs/complete-must-evidence`, Node 22.23.2: 41 app/UI
+08/10/2026, nhánh `chore/final-evidence`, Node 22.23.2: 41 app/UI
 tests pass (1 MySQL integration opt-in skip trong suite mặc định), production
-build pass và 35 policy tests pass. Terraform bootstrap/app fmt + validate pass.
+build pass và 39 policy tests pass. Terraform bootstrap/app/monitoring-live fmt +
+validate pass. PR #33 chạy đủ 10 GitHub checks và tất cả đều xanh.
 Runtime chuyển sang Node 22 Alpine, `apk upgrade`, bỏ npm/corepack và chạy bằng
 UID 1000. Container migration + MySQL CRUD + SPA/API/diagnostics smoke pass.
 Trivy DB cùng ngày quét mọi severity
 `UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL` không ignore và trả `0` finding.
 Docker bridge từ host bị WARP reset nên smoke được chạy bên trong app container;
 healthcheck nội bộ vẫn healthy và compose đã cleanup bằng `trap`.
+
+Các mục theo ngày bên dưới là nhật ký lịch sử tại thời điểm tương ứng, không phải
+trạng thái nghiệm thu hiện tại. M2/M10 sau đó đã hoàn tất bằng CD run
+37723130114; trạng thái cuối được ghi trong `evidence/M2.md` và
+`evidence/M10.md`.
 
 30/09/2026, release staging SHA `21b756c59686b58760afaddf9695fa63b70e8838`:
 [GitHub CD run 36688199042](https://github.com/qkhanhbe/HanoiTrip/actions/runs/36688199042)
@@ -140,4 +146,8 @@ này thay cho các evidence cloud bên dưới.
 
 Ngày 28/09/2026, dưới Node 22.23.2: clean install với `--engine-strict`, toàn bộ `npm run check` (29 test thường), 14 policy tests, 1 MySQL integration test, migration và HTTP smoke ghi/đọc dữ liệu đều pass local. Database tạm đã được dừng sau kiểm thử.
 
-Docker build của thay đổi CI hiện tại chưa xác nhận: lần thử local bị hủy khi chờ `npm ci`. GitLab runner, Terraform plan và release Azure cần kết quả riêng. Xem [CI GitLab](ci-gitlab.md) và [CI GitHub](ci-github.md) để biết phạm vi từng pipeline.
+Ghi chú lịch sử ngày 28/09: Docker build của lượt thay đổi CI khi đó chưa xác nhận
+do lần thử local bị hủy trong lúc chờ `npm ci`. Khoảng trống này đã được khép lại
+bởi local final validation và các GitHub CI/CD run ngày 08/10 nêu trên. Xem
+[CI GitLab](ci-gitlab.md) và [CI GitHub](ci-github.md) để biết phạm vi từng
+pipeline.

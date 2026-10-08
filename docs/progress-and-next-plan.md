@@ -54,6 +54,20 @@ Cập nhật: **08/10/2026**
 5. Nếu cần đồng bộ GitLab để review, người dùng tự nhập username/password; không
    force-push hoặc trộn lịch sử GitHub/GitLab.
 
+## Completion audit MUST
+
+Đối chiếu lại trực tiếp với bảng M1–M11 trong đề gốc ngày 08/10/2026:
+
+| Mốc | Kết quả kỹ thuật | Evidence đóng gói | Việc còn lại |
+| --- | --- | --- | --- |
+| M1–M10 | Đạt | Đủ log/ảnh/output trong `evidence/M1.md`–`M10.md` | Không |
+| M11 | Đạt | Log Terraform/KQL/alert drill đã có | Năm nhóm ảnh Portal bên dưới |
+
+Năm nhóm ảnh M11 là dashboard, kết quả KQL, danh sách ba alert rule, action
+group và Alert History Fired/Resolved. Email Fired/Resolved chỉ là evidence bổ
+sung nếu còn lưu; không cần trigger lại sự cố production. Hai cross-review và
+live demo là deliverable cuối đề, tách khỏi tiêu chí kỹ thuật M1–M11.
+
 ## Blocker còn lại
 
 Không còn blocker kỹ thuật cho M1–M11. Các phụ thuộc còn lại là bằng chứng do người
