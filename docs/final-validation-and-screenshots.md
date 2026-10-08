@@ -90,7 +90,10 @@ có bản đồ, geometry bám đường, provider attribution và danh sách ph
 
 Monitoring live đã được triển khai ngày 08/10/2026. Trong Azure Portal:
 
-1. **Dashboard** → mũi tên cạnh tên dashboard → chọn `HanoiTrip operations`.
+1. **Dashboard** → mũi tên cạnh tên dashboard → chọn shared dashboard
+   `HanoiTrip operations`. Nếu dropdown chỉ hiện private dashboard, dùng thanh
+   tìm kiếm toàn cục của Azure Portal để mở resource
+   `dashboard-hanoitrip-bqk` trong `rg-hanoitrip-sandbox`, rồi chọn **Open**.
 2. **Log Analytics workspaces** → `log-hanoitrip-bqk` → **Logs** → chạy KQL
    trong `evidence/M11.md`.
 3. **Monitor** → **Alerts** → **Alert rules** → lọc resource group
