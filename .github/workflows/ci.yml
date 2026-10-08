@@ -79,7 +79,7 @@ jobs:
         if: ${{ vars.AZURE_TERRAFORM_PLAN_ENABLED != 'true' }}
         run: |
           echo "## Terraform plan pending" >> "$GITHUB_STEP_SUMMARY"
-          echo "Set AZURE_TERRAFORM_PLAN_ENABLED=true only after the read-scoped OIDC identity and remote backend variables exist." >> "$GITHUB_STEP_SUMMARY"
+          echo "Set AZURE_TERRAFORM_PLAN_ENABLED=true only after the read-only PR OIDC identity and plan variables exist." >> "$GITHUB_STEP_SUMMARY"
           echo "::warning::No Azure plan was produced in this run; fmt/validate still run in terraform-check."
       - if: ${{ vars.AZURE_TERRAFORM_PLAN_ENABLED == 'true' }}
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -102,24 +102,20 @@ jobs:
           ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           ARM_USE_OIDC: 'true'
-          ARM_USE_AZUREAD: 'true'
           TF_VAR_allowed_ip_cidrs: ${{ vars.AZURE_ALLOWED_IP_CIDRS_JSON }}
           TF_VAR_alert_email: ${{ vars.AZURE_ALERT_EMAIL }}
           TF_VAR_mysql_secret_expiration_date: ${{ vars.AZURE_MYSQL_SECRET_EXPIRATION_DATE }}
           TF_VAR_github_actions_principal_object_id: ${{ vars.AZURE_DEPLOY_PRINCIPAL_OBJECT_ID }}
-          TFSTATE_RESOURCE_GROUP: ${{ vars.AZURE_TFSTATE_RESOURCE_GROUP }}
-          TFSTATE_STORAGE_ACCOUNT: ${{ vars.AZURE_TFSTATE_STORAGE_ACCOUNT }}
-          TFSTATE_CONTAINER: ${{ vars.AZURE_TFSTATE_CONTAINER }}
-          TFSTATE_KEY: ${{ vars.AZURE_TFSTATE_KEY }}
         run: |
-          terraform -chdir=terraform/app init -input=false \
-            -backend-config="resource_group_name=$TFSTATE_RESOURCE_GROUP" \
-            -backend-config="storage_account_name=$TFSTATE_STORAGE_ACCOUNT" \
-            -backend-config="container_name=$TFSTATE_CONTAINER" \
-            -backend-config="key=$TFSTATE_KEY" \
-            -backend-config="use_azuread_auth=true"
-          terraform -chdir=terraform/app plan -input=false -out="$RUNNER_TEMP/hanoitrip.tfplan"
+          terraform -chdir=terraform/app init -backend=false -input=false
+          terraform -chdir=terraform/app plan -refresh=false -input=false \
+            -out="$RUNNER_TEMP/hanoitrip.tfplan"
           terraform -chdir=terraform/app show -no-color "$RUNNER_TEMP/hanoitrip.tfplan" > "$RUNNER_TEMP/terraform-plan.txt"
+          {
+            echo "## Terraform review plan"
+            echo "A real greenfield plan was generated with a read-only PR identity."
+            echo "Remote state is intentionally not attached to untrusted PR code; this job never applies or deploys."
+          } >> "$GITHUB_STEP_SUMMARY"
       - if: ${{ vars.AZURE_TERRAFORM_PLAN_ENABLED == 'true' }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:

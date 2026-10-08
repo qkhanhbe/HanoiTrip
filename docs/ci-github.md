@@ -17,7 +17,8 @@ dùng `https://registry.npmjs.org/` theo lockfile, không phụ thuộc jfrog-au
    Góp ý được áp dụng lại trên PR GitHub và chạy CI lại. Approval/checks là riêng.
 4. GitHub CI: source-security-gate; app-check (npm ci/check + policy tests);
    terraform-check; container-check (Docker build không push, MySQL/HTTP smoke,
-   Trivy image scan). Terraform plan chỉ có thật sau khi identity/state được cấu hình.
+   Trivy image scan). Terraform plan dùng OIDC identity read-only riêng và xuất
+   text artifact; PR không được đọc remote state hoặc apply.
 5. Ruleset main: bắt buộc PR/review và các checks trên, chặn direct/force push.
    Chứng minh test/secret giả làm đỏ và chặn merge. Không coi job skip là pass.
 6. Squash merge PR GitHub sau review; đó là commit nguồn cho release. Nếu GitLab
@@ -151,7 +152,13 @@ Không có lockfile/source/IaC có thể tạo report trống hợp lệ. Khi ap
 
 ## CI app và CD Azure
 
-`ci.yml` chạy lint/test/typecheck/build, test policy gate, Terraform fmt/init/validate, Docker Compose + MySQL smoke và Trivy runtime image. Job `terraform-plan` dùng OIDC identity tách riêng và chỉ tạo text artifact khi `AZURE_TERRAFORM_PLAN_ENABLED=true`; nếu chưa cấu hình, job ghi warning rõ ràng chứ không bịa plan.
+`ci.yml` chạy lint/test/typecheck/build, test policy gate, Terraform
+fmt/init/validate, Docker Compose + MySQL smoke và Trivy runtime image. Job
+`terraform-plan` dùng OIDC identity dành riêng cho PR, chỉ có Azure `Reader`, rồi
+tạo greenfield plan thật với `-backend=false -refresh=false` và upload bản text.
+Không gắn remote state vào code PR vì state có thể chứa dữ liệu nhạy cảm; job
+không có lệnh apply hoặc quyền ghi tài nguyên. Nếu cờ cấu hình chưa bật, job ghi
+warning rõ ràng chứ không bịa plan.
 
 `cd.yml` chạy `push` vào `main`: OIDC → build release image SHA → image scan → ACR → mở IP runner tạm → migration → staging warm-up → poll production mỗi giây trước swap → swap → xác nhận SHA B → rollback và xác nhận SHA A nếu lỗi. CD dùng concurrency riêng, cleanup production/staging/MySQL/Key Vault bằng `always()` và lưu raw evidence kể cả failure. Chỉ đặt `AZURE_CD_ENABLED=true` sau khi Terraform outputs, repository variables, secrets OIDC và environment `azure-sandbox` đã được review.
 

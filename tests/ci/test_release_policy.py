@@ -12,6 +12,9 @@ class ReleasePolicyTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.workflow = (ROOT / ".github/workflows/cd.yml").read_text(encoding="utf-8")
+        cls.ci_workflow = (ROOT / ".github/workflows/ci.yml").read_text(
+            encoding="utf-8"
+        )
         cls.workflows = "\n".join(
             path.read_text(encoding="utf-8")
             for path in sorted((ROOT / ".github/workflows").glob("*.yml"))
@@ -52,6 +55,16 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertIn("vars.AZURE_CD_ENABLED == 'true'", self.workflow)
         self.assertIn("vars.AZURE_CD_CONFIG_REVIEWED == 'true'", self.workflow)
 
+    def test_pr_plan_is_real_read_only_and_detached_from_remote_state(self):
+        self.assertIn("secrets.AZURE_PLAN_CLIENT_ID", self.ci_workflow)
+        self.assertIn("id-token: write", self.ci_workflow)
+        self.assertIn("terraform -chdir=terraform/app plan", self.ci_workflow)
+        self.assertIn("-backend=false", self.ci_workflow)
+        self.assertIn("-refresh=false", self.ci_workflow)
+        self.assertIn("terraform-plan.txt", self.ci_workflow)
+        self.assertNotIn("TFSTATE_STORAGE_ACCOUNT", self.ci_workflow)
+        self.assertNotIn("terraform -chdir=terraform/app apply", self.ci_workflow)
+
     def test_oidc_probe_is_main_only_and_read_only(self):
         marker = "oidc-probe:"
         start = self.workflow.index(marker)
@@ -81,13 +94,16 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertIn("AZURE_RELEASE_REQUIRE_ROAD_PROVIDER", self.workflow)
         self.assertIn("SMOKE_ROAD=1", self.workflow)
 
-    def test_warmup_tolerates_transient_restart_errors_but_requires_stability(self):
+    def test_staging_tolerates_restarts_but_production_observer_is_strict(self):
         poller = (ROOT / "scripts/release/poll-version.mjs").read_text(
             encoding="utf-8"
         )
         self.assertIn("stableExpected >= 3", poller)
         self.assertIn("transient failed response(s)", poller)
-        self.assertNotIn("if (non200) throw", poller)
+        self.assertIn("strict && failedObservation", poller)
+        self.assertNotIn('staging-version.jsonl" --strict', self.workflow)
+        self.assertIn('production-swap.jsonl" --strict', self.workflow)
+        self.assertIn('rollback.jsonl" --strict', self.workflow)
 
     def test_live_road_release_configures_a_key_vault_reference_fail_closed(self):
         self.assertIn("AZURE_VIETMAP_API_KEY_SECRET", self.workflow)
