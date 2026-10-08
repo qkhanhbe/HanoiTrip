@@ -192,7 +192,7 @@ jobs:
           old_sha=$(curl --fail --silent --show-error "$production/version" | node -pe 'JSON.parse(fs.readFileSync(0)).buildSha')
           test "$old_sha" != "$GITHUB_SHA"
           node scripts/release/poll-version.mjs --url "$production" --expected "$GITHUB_SHA" \
-            --timeout 240 --output "$RUNNER_TEMP/production-swap.jsonl" &
+            --timeout 240 --output "$RUNNER_TEMP/production-swap.jsonl" --strict &
           observer=$!
           sleep 2
           if ! az webapp deployment slot swap --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
@@ -206,7 +206,7 @@ jobs:
             az webapp deployment slot swap --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
               --slot "$SLOT_NAME" --target-slot production
             node scripts/release/poll-version.mjs --url "$production" --expected "$old_sha" \
-              --timeout 240 --output "$RUNNER_TEMP/rollback.jsonl"
+              --timeout 240 --output "$RUNNER_TEMP/rollback.jsonl" --strict
             exit 1
           fi
       - name: Report staging-only release
