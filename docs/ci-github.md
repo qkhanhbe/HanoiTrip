@@ -124,7 +124,10 @@ GitHub đang gate SCA theo HIGH/CRITICAL, còn component GitLab ghi SCA gated by
 
 Semgrep dùng `scan` cho toàn bộ source hiện tại, tắt metrics/version check; không gọi dịch vụ scan cloud. Ruleset được tải từ registry nên cần network và có thể thay đổi độc lập với phiên bản engine; artifact giữ `check_id` và engine version để điều tra. Nếu cần tái lập tuyệt đối, đưa snapshot rules đã được review vào repo rồi đổi `--config` sang đường dẫn local.
 
-Gitleaks giữ fingerprint ổn định nhờ full history. Khi có false positive, PR phải ghi lý do cho fingerprint trong `.gitleaksignore`; không dùng ignore rộng để làm xanh gate.
+Gitleaks giữ fingerprint ổn định nhờ full history reachable từ `HEAD` của PR.
+Không dùng `--all`, vì một nhánh thử lỗi không liên quan sẽ làm mọi PR khác đỏ.
+Khi có false positive, PR phải ghi lý do cho fingerprint trong
+`.gitleaksignore`; không dùng ignore rộng để làm xanh gate.
 
 ## Reports và xử lý lỗi
 

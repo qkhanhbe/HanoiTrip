@@ -66,6 +66,11 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertNotIn("TFSTATE_STORAGE_ACCOUNT", self.ci_workflow)
         self.assertNotIn("terraform -chdir=terraform/app apply", self.ci_workflow)
 
+    def test_gitleaks_scans_only_history_reachable_from_the_current_pr(self):
+        scan_script = (ROOT / "scripts/ci/scan-source.sh").read_text(encoding="utf-8")
+        self.assertIn("--log-opts=HEAD", scan_script)
+        self.assertNotIn("--log-opts=--all", scan_script)
+
     def test_oidc_probe_is_main_only_and_read_only(self):
         marker = "oidc-probe:"
         start = self.workflow.index(marker)
