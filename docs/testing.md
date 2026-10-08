@@ -98,6 +98,16 @@ cần thiết vào evidence được track. Script không nhận hoặc in API k
 
 ## Kết quả gần nhất
 
+08/10/2026, nhánh `docs/complete-must-evidence`, Node 22.23.2: 41 app/UI
+tests pass (1 MySQL integration opt-in skip trong suite mặc định), production
+build pass và 35 policy tests pass. Terraform bootstrap/app fmt + validate pass.
+Runtime chuyển sang Node 22 Alpine, `apk upgrade`, bỏ npm/corepack và chạy bằng
+UID 1000. Container migration + MySQL CRUD + SPA/API/diagnostics smoke pass.
+Trivy DB cùng ngày quét mọi severity
+`UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL` không ignore và trả `0` finding.
+Docker bridge từ host bị WARP reset nên smoke được chạy bên trong app container;
+healthcheck nội bộ vẫn healthy và compose đã cleanup bằng `trap`.
+
 30/09/2026, release staging SHA `21b756c59686b58760afaddf9695fa63b70e8838`:
 [GitHub CD run 36688199042](https://github.com/qkhanhbe/HanoiTrip/actions/runs/36688199042)
 đã build/scan/push image bất biến, migrate và warm staging thành công; production swap

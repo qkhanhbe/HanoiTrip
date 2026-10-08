@@ -110,10 +110,9 @@ jobs:
           echo "IMAGE=$image" >> "$GITHUB_ENV"
           docker build --build-arg "BUILD_SHA=$GITHUB_SHA" --tag "$image" .
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-            -v "$GITHUB_WORKSPACE/.trivyignore.yaml:/policy/.trivyignore.yaml:ro" \
             aquasec/trivy:0.74.0@sha256:ee940acbf1f58ebadb42d01434ce4609530bf1b52536afbd1eee66cd7123c5c9 \
-            image --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --ignore-unfixed=false \
-            --ignorefile /policy/.trivyignore.yaml --timeout 10m "$image"
+            image --scanners vuln --severity UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL \
+            --exit-code 1 --ignore-unfixed=false --timeout 10m "$image"
           docker push "$image"
       - name: Open temporary runner access
         run: |
@@ -149,14 +148,15 @@ jobs:
           fi
           az webapp sitecontainers show --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
             --slot "$SLOT_NAME" --container-name main >/dev/null
-          uami_client_ids=$(az webapp identity show --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
-            --query 'userAssignedIdentities.*.clientId' --output tsv)
-          set -- $uami_client_ids
-          if [ "$#" -ne 1 ]; then
-            echo "Expected exactly one user-assigned identity on the web app; found $#" >&2
+          mapfile -t uami_client_ids < <(
+            az webapp identity show --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
+              --query 'userAssignedIdentities.*.clientId' --output tsv
+          )
+          if [ "${#uami_client_ids[@]}" -ne 1 ]; then
+            echo "Expected exactly one user-assigned identity on the web app; found ${#uami_client_ids[@]}" >&2
             exit 1
           fi
-          acr_pull_client_id="$1"
+          acr_pull_client_id="${uami_client_ids[0]}"
           az webapp sitecontainers update --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
             --slot "$SLOT_NAME" --container-name main --image "$IMAGE" \
             --target-port 8080 --is-main true --user-assigned-identity "$acr_pull_client_id" >/dev/null

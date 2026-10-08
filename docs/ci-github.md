@@ -28,32 +28,36 @@ dùng `https://registry.npmjs.org/` theo lockfile, không phụ thuộc jfrog-au
    migration additive → staging/health → quan sát production → swap → kiểm chứng
    hoặc rollback. PR không deploy. Không swap chỉ để hoàn tất bài khi bản B chưa chốt.
 
-### Trạng thái CD — staging bật, production swap khóa
+### Trạng thái CD — release production đã kiểm chứng, swap khóa lại
 
-Ngày 30/09/2026, [run 36688199042](https://github.com/qkhanhbe/HanoiTrip/actions/runs/36688199042)
-đã kiểm chứng flow OIDC → build/scan → ACR → migration → staging warm-up → smoke
-trên commit `21b756c59686b58760afaddf9695fa63b70e8838`. Workflow lấy đúng hostname có
-suffix Portal, cập nhật main container ở chế độ `sitecontainers`, dùng Key Vault
-reference cho VIETMAP và dọn toàn bộ rule runner tạm. Production vẫn ở image
-`manual-20260926-1`; bước swap bị skip theo gate độc lập.
+Ngày 08/10/2026,
+[run 37723130114](https://github.com/qkhanhbe/HanoiTrip/actions/runs/37723130114)
+đã kiểm chứng flow end-to-end OIDC → build/scan → ACR → migration → staging
+warm-up/smoke → production observer strict → slot swap → verify → cleanup. Image
+B là `42d24aa22897aa0067d2c8fbaf703840d76e3652`.
+
+Raw production observer có 30/30 HTTP 200, không lỗi và chuyển từ image A
+`manual-20260926-1` sang B. Sau run, production `/health` trả MySQL `ok`,
+mọi rule `github-cd-temporary` đã được xóa và MySQL chỉ còn bốn rule App Service.
 
 Trạng thái repository variables sau run:
 
 - `AZURE_CD_ENABLED=true` và `AZURE_CD_CONFIG_REVIEWED=true`: mọi commit đã merge
   vào `main` có thể tự động phát hành lên staging;
 - `AZURE_CD_OIDC_PROBE_ENABLED=false`: probe riêng đã hoàn thành;
-- `AZURE_PRODUCTION_SWAP_ENABLED=false`: tuyệt đối không swap production khi chưa
-  có release approval, benchmark và rollback rehearsal.
+- `AZURE_PRODUCTION_SWAP_ENABLED=false`: đã đặt lại ngay sau release; một swap
+  mới cần release approval riêng.
 
 Release VIETMAP giữ `AZURE_RELEASE_REQUIRE_ROAD_PROVIDER=true` và secret name
 `vietmap-api-key`. CD chỉ gắn Key Vault reference, không đọc hoặc truyền API key vào
 GitHub. `ROAD_PROVIDER` và reference là non-sticky để có thể đi cùng image B khi
 swap; managed identity không swap nên cả hai slot tiếp tục dùng UAMI có quyền
-`Key Vault Secrets User`. PR và CD image scan dùng chung `.trivyignore.yaml`;
-exception phải có phạm vi, lý do và `expired_at`, hết hạn làm gate đỏ.
+`Key Vault Secrets User`. PR và CD scan image ở mọi severity
+`UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL`, không dùng ignore file; bất kỳ CVE nào cũng làm
+gate đỏ.
 
-Phần còn thiếu trước production là production observer A→B, rollback rehearsal và
-raw evidence M2/M10. Không bật cờ swap chỉ để làm xanh bài.
+Workflow có rollback tự động nếu verify SHA mới thất bại. Không bật cờ swap hoặc
+cố ý reverse-swap một release khỏe chỉ để tạo evidence.
 
 Tài liệu chính thức: [GitHub OIDC với Azure](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-azure), [Azure CLI sitecontainers](https://learn.microsoft.com/cli/azure/webapp/sitecontainers) và [App Service slot swap](https://learn.microsoft.com/azure/app-service/deploy-staging-slots).
 
@@ -99,7 +103,7 @@ Bản chuyển đổi dùng [source-scan workflow](../.github/workflows/source-s
 | `workflow.rules`, MR-only          | `on.pull_request`, không có `push` ở source-scan                                   |
 | Component nội bộ                   | Bốn job gọi CLI scanner trong container public, pin digest                         |
 | Stages `scan → report`             | Bốn job song song → `security-gate` qua `needs`                                    |
-| `GIT_DEPTH: 0`                     | Checkout `fetch-depth: 0` riêng Gitleaks; scan `--all`                             |
+| `GIT_DEPTH: 0`                     | Checkout `fetch-depth: 0`; Gitleaks scan history reachable từ `HEAD`               |
 | `when: always`                     | `if: ${{ always() }}` cho upload report và gate                                    |
 | `needs.artifacts`                  | Upload/download artifacts với tên, đường dẫn xác định                              |
 | `allow_failure.exit_codes: [3]`    | MEDIUM/LOW trả 0 + `::warning::` + Job Summary; không dùng `continue-on-error`     |
@@ -185,7 +189,11 @@ Các test dùng report giả để kiểm tra severity mapping, thiếu/hỏng r
 7. Merge/push main không chạy source-scan; khi CD được thêm, xác nhận CD chạy đúng.
 8. Ghi rõ chưa xác nhận TI blacklist/ruleset nội bộ; cập nhật policy khi nhận đủ thông tin.
 
-Local run ngày 25/09/2026 đã chạy đủ bốn scanner: 0 secret/Critical/High, 4 Medium + 4 Low IaC, gate `PASS WITH WARNINGS`. PR #1 sau một lần sửa parser Semgrep đã xanh toàn bộ và squash merge qua ruleset `protect-main`; CD main trigger thành công nhưng deploy skipped theo safety flag. Terraform đã fmt/validate nhưng chưa plan/apply Azure.
+PR #29 ngày 08/10/2026 đã xanh toàn bộ, gồm Terraform greenfield plan thật
+`38 add, 0 change, 0 destroy`. PR #30 chứng minh secret bị central gate chặn;
+PR #31 chứng minh test lỗi chặn merge. Cả hai negative PR đã đóng, không merge.
+Sau khi PR #29 squash merge, CD run 37723130114 phát hành production thành công;
+chi tiết xem [M9](../evidence/M9.md) và [M10](../evidence/M10.md).
 
 ## Tài liệu chính thức
 
