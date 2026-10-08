@@ -1,29 +1,35 @@
 # Known issues
 
-## Các phần cần kiểm chứng triển khai
+## Evidence và vận hành
 
-- Greenfield Terraform rebuild, remote state/lock, zero-change plan và cleanup đã được kiểm chứng. Sandbox cũ tạo ngoài state vẫn chưa được import; không quản lý hoặc xóa nhầm bằng stack greenfield.
-- CD đã build/push/deploy staging thành công; production swap vẫn khóa nên chưa có run staging → swap → rollback và raw zero-downtime log.
-- Terraform plan job chỉ tạo artifact khi OIDC/backend được cấu hình; run hiện tại chỉ có fmt/validate.
-- Dashboard, KQL, action group và ba alert đã được kích hoạt trên stack test; alert HTTP 5xx đã Fired/Resolved. Còn screenshot dashboard/alerts và email nhận được cho bộ evidence cuối.
-- Google Routes/Google Maps live chưa có key và chưa test coverage transit Hà Nội; UI đang ghi rõ route demo.
-- VIETMAP adapter và contract tests đã có; staging đã chạy Search/Place/Route thật nhưng vẫn thiếu quota/điều khoản cache-attribution evidence và production chưa swap bản này.
+- M1–M11 đã đạt kỹ thuật; vẫn cần đóng gói screenshot Portal/Actions và email
+  alert theo [checklist cuối](docs/final-validation-and-screenshots.md).
+- Autoscale min 1/max 2 đã active nhưng chưa có biểu đồ một lần scale-out thật.
+  Đây là evidence bổ sung, không phải điều kiện MUST còn thiếu.
+- Actual Cost có độ trễ billing; số mới nhất phải lấy lại khi chốt báo cáo.
+- Sandbox cũ nằm ngoài Terraform state greenfield; không import/xóa nhầm bằng
+  stack M8.
+- GitHub production swap đã khóa lại. Một release mới cần review và bật cờ riêng,
+  không dựa vào trạng thái của run 37723130114.
 
-## Gap đã biết
+## Sản phẩm
 
-- GitHub chạy app CI/CD với npm public; GitLab dành cho review/scan, không deploy.
-  GitLab image scan chưa nối nguồn image; xem [phạm vi GitLab](docs/ci-gitlab.md).
-- Production swap vẫn khóa đến khi poller chứng minh tuyệt đối 0 non-200 và rollback được diễn tập.
-- Autoscale min 1/max 2 đã active; chưa có evidence hành vi scale-out lên 2 rồi scale-in về 1.
-- Cost Management đã trả Actual Cost tháng hiện tại, nhưng stack test mới chưa xuất hiện do độ trễ billing.
+- Google transit chưa có key và chưa kiểm tra coverage Hà Nội; app hiện có
+  VIETMAP road routing thật cho ô tô/xe máy, public transport vẫn là demo.
+- MapLibre được lazy-load nhưng chunk map còn lớn; lần đầu mở map có thể chậm trên
+  mạng yếu.
+- Favorites dùng chung sandbox, chưa có tài khoản hoặc phân quyền người dùng.
 
-- Trivy IaC hiện còn Medium/Low: MySQL public endpoint có firewall, App Service authentication chưa bật, storage state dùng LRS/không CMK và một số hardening phụ. Gate theo đề chỉ chặn secret/High/Critical; warnings vẫn phải review.
-- Policy SCA GitHub tạm chặn HIGH/CRITICAL vì không có TI blacklist/component nội bộ từ GitLab để tái tạo chính xác.
-- Runtime scan tạm miễn đúng `CVE-2026-84782` đến `2026-10-14`: Debian 13/Distroless chưa có fixed OpenSSL package và app không dùng DTLS. Không mở rộng thành `--ignore-unfixed`; xóa exception ngay khi image hỗ trợ có bản vá.
-- MapLibre được lazy-load nhưng chunk map vẫn lớn; lần đầu mở map có thể chậm trên mạng yếu.
-- Favorites dùng chung sandbox, chưa có tài khoản hay phân quyền người dùng.
-- GitHub-hosted runner cần mở IP tạm cho production, staging, MySQL và Key Vault; cleanup có `always()`, nhưng vẫn phải kiểm tra rule orphan sau mọi run lỗi.
+## Security và CI
 
-## Nếu làm lại
-
-Tạo Azure sandbox/OIDC trước khi viết CD để validate lệnh CLI và metric names sớm hơn; dùng private networking khi ngân sách/quyền cho phép; snapshot Semgrep rules nội bộ để scan tái lập tuyệt đối.
+- GitHub dùng npm public. GitLab chỉ review/source scan; image scan GitLab chưa
+  nối OCI producer và GitLab không CD Azure cá nhân.
+- GitHub SCA tạm gate HIGH/CRITICAL vì không có TI blacklist nội bộ để tái tạo
+  policy GitLab chính xác.
+- Runtime Alpine đã scan 0 CVE ở mọi severity sau khi upgrade OS và bỏ
+  npm/corepack khỏi image cuối. CI/CD không có vulnerability exception; package
+  hoặc database mới làm xuất hiện CVE sẽ chặn release cho tới khi được sửa.
+- Source scan chỉ xét history reachable từ `HEAD`; dùng `--all` sẽ làm nhánh
+  negative test không liên quan khiến PR sạch đỏ.
+- GitHub-hosted runner cần rule tạm cho App Service/MySQL/Key Vault; cleanup có
+  `always()`, nhưng vẫn phải hậu kiểm rule orphan sau mọi run lỗi.

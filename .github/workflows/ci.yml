@@ -161,10 +161,9 @@ jobs:
         run: |
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
-            -v "$GITHUB_WORKSPACE/.trivyignore.yaml:/policy/.trivyignore.yaml:ro" \
             aquasec/trivy:0.74.0@sha256:ee940acbf1f58ebadb42d01434ce4609530bf1b52536afbd1eee66cd7123c5c9 \
-            image --scanners vuln --severity HIGH,CRITICAL --exit-code 1 \
-            --ignore-unfixed=false --ignorefile /policy/.trivyignore.yaml \
+            image --scanners vuln --severity UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL --exit-code 1 \
+            --ignore-unfixed=false \
             --timeout 10m "hanoitrip:$BUILD_SHA"
       - name: Clean up ephemeral containers
         if: ${{ always() }}

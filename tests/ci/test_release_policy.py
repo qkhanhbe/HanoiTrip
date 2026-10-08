@@ -194,19 +194,29 @@ class ReleasePolicyTests(unittest.TestCase):
         )
         self.assertNotIn("azurerm_key_vault_access_policy", app)
 
-    def test_release_image_scan_uses_the_reviewed_expiring_exception_file(self):
+    def test_ci_and_release_image_scans_block_every_vulnerability(self):
         marker = "- name: Build, scan and push immutable image"
         start = self.workflow.index(marker)
         end = self.workflow.index("- name: Open temporary runner access", start)
         image_gate = self.workflow[start:end]
-        self.assertIn(".trivyignore.yaml:/policy/.trivyignore.yaml:ro", image_gate)
-        self.assertIn("--ignorefile /policy/.trivyignore.yaml", image_gate)
-        self.assertIn("--severity HIGH,CRITICAL --exit-code 1", image_gate)
+        ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        severity_gate = "--severity UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
 
-        exceptions = (ROOT / ".trivyignore.yaml").read_text(encoding="utf-8")
-        self.assertIn("CVE-2026-84782", exceptions)
-        self.assertIn("expired_at: 2026-10-14", exceptions)
-        self.assertIn("HanoiTrip does not expose or initiate DTLS", exceptions)
+        self.assertIn(severity_gate, image_gate)
+        self.assertIn("--exit-code 1 --ignore-unfixed=false", image_gate)
+        self.assertIn(severity_gate, ci)
+        self.assertIn("--ignore-unfixed=false", ci)
+        self.assertNotIn("--ignorefile", image_gate)
+        self.assertNotIn("--ignorefile", ci)
+        self.assertFalse((ROOT / ".trivyignore.yaml").exists())
+
+    def test_runtime_removes_package_managers_and_runs_as_non_root(self):
+        dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+        self.assertIn("node:22.23.2-alpine3.23@sha256:", dockerfile)
+        self.assertIn("apk upgrade --no-cache", dockerfile)
+        self.assertIn("/usr/local/lib/node_modules/npm", dockerfile)
+        self.assertIn("/usr/local/lib/node_modules/corepack", dockerfile)
+        self.assertIn("USER node", dockerfile)
 
     def test_state_storage_uses_entra_data_plane_and_keeps_queue_logging(self):
         bootstrap = (ROOT / "terraform/bootstrap/main.tf").read_text(encoding="utf-8")
@@ -318,7 +328,8 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertEqual(app.count("userManagedIdentityClientId"), 2)
         self.assertIn('DB_MIGRATE_ON_START = "true"', app)
         self.assertIn("DB_MIGRATE_ON_START", config)
-        self.assertIn("Acquire::ForceIPv4=true", dockerfile)
+        self.assertIn("apk upgrade --no-cache", dockerfile)
+        self.assertNotIn("apt-get", dockerfile)
         self.assertNotIn("appsvc/staticsite", app)
 
 
