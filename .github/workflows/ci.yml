@@ -107,10 +107,15 @@ jobs:
           TF_VAR_mysql_secret_expiration_date: ${{ vars.AZURE_MYSQL_SECRET_EXPIRATION_DATE }}
           TF_VAR_github_actions_principal_object_id: ${{ vars.AZURE_DEPLOY_PRINCIPAL_OBJECT_ID }}
         run: |
-          terraform -chdir=terraform/app init -backend=false -input=false
-          terraform -chdir=terraform/app plan -refresh=false -input=false \
+          plan_root="$RUNNER_TEMP/hanoitrip-plan-source"
+          mkdir -p "$plan_root"
+          git archive HEAD | tar -x -C "$plan_root"
+          rm "$plan_root/terraform/app/backend.tf"
+          terraform -chdir="$plan_root/terraform/app" init -backend=false -input=false
+          terraform -chdir="$plan_root/terraform/app" plan -refresh=false -input=false \
             -out="$RUNNER_TEMP/hanoitrip.tfplan"
-          terraform -chdir=terraform/app show -no-color "$RUNNER_TEMP/hanoitrip.tfplan" > "$RUNNER_TEMP/terraform-plan.txt"
+          terraform -chdir="$plan_root/terraform/app" show -no-color \
+            "$RUNNER_TEMP/hanoitrip.tfplan" > "$RUNNER_TEMP/terraform-plan.txt"
           {
             echo "## Terraform review plan"
             echo "A real greenfield plan was generated with a read-only PR identity."

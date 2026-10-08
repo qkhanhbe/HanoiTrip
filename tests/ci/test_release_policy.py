@@ -58,7 +58,8 @@ class ReleasePolicyTests(unittest.TestCase):
     def test_pr_plan_is_real_read_only_and_detached_from_remote_state(self):
         self.assertIn("secrets.AZURE_PLAN_CLIENT_ID", self.ci_workflow)
         self.assertIn("id-token: write", self.ci_workflow)
-        self.assertIn("terraform -chdir=terraform/app plan", self.ci_workflow)
+        self.assertIn('terraform -chdir="$plan_root/terraform/app" plan', self.ci_workflow)
+        self.assertIn('rm "$plan_root/terraform/app/backend.tf"', self.ci_workflow)
         self.assertIn("-backend=false", self.ci_workflow)
         self.assertIn("-refresh=false", self.ci_workflow)
         self.assertIn("terraform-plan.txt", self.ci_workflow)
