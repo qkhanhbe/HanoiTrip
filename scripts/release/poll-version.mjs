@@ -2,15 +2,25 @@ import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
 const values = new Map();
-for (let index = 2; index < process.argv.length; index += 2) {
-  values.set(process.argv[index], process.argv[index + 1]);
+let strict = false;
+for (let index = 2; index < process.argv.length; ) {
+  const argument = process.argv[index];
+  if (argument === '--strict') {
+    strict = true;
+    index += 1;
+    continue;
+  }
+  values.set(argument, process.argv[index + 1]);
+  index += 2;
 }
 const baseUrl = values.get('--url');
 const expected = values.get('--expected');
 const output = values.get('--output');
 const timeoutSeconds = Number(values.get('--timeout') ?? 180);
 if (!baseUrl || !expected || !output || !Number.isFinite(timeoutSeconds)) {
-  throw new Error('Usage: poll-version.mjs --url URL --expected SHA --output FILE [--timeout SECONDS]');
+  throw new Error(
+    'Usage: poll-version.mjs --url URL --expected SHA --output FILE [--timeout SECONDS] [--strict]',
+  );
 }
 
 await mkdir(dirname(output), { recursive: true });
@@ -21,6 +31,7 @@ let stableExpected = 0;
 
 while (Date.now() < deadline) {
   const row = { timestamp: new Date().toISOString(), status: 0, buildSha: null, error: null };
+  let failedObservation = false;
   try {
     const response = await fetch(`${baseUrl.replace(/\/$/, '')}/version`, {
       headers: { 'cache-control': 'no-cache' },
@@ -34,13 +45,21 @@ while (Date.now() < deadline) {
     } else {
       non200 += 1;
       stableExpected = 0;
+      failedObservation = true;
+      row.error = `HTTP ${response.status}`;
     }
   } catch (error) {
     non200 += 1;
     stableExpected = 0;
+    failedObservation = true;
     row.error = error instanceof Error ? error.name : 'UnknownError';
   }
   await appendFile(output, `${JSON.stringify(row)}\n`);
+  if (strict && failedObservation) {
+    throw new Error(
+      `Strict observation failed after ${non200} non-200/network response(s); raw observations: ${output}`,
+    );
+  }
   if (stableExpected >= 3) {
     console.log(
       `Observed ${expected} for three consecutive polls after ${non200} transient failed response(s).`,
