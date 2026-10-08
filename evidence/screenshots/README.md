@@ -6,6 +6,7 @@ token, password, connection string hoặc API key. Tên file dùng tiền tố m
 
 | File | Mốc | Nội dung | Ngày chụp |
 | --- | --- | --- | --- |
+| `m11-dashboard-app-infra.png` | M11 | Sáu chart App/App Service render dữ liệu; chưa bao gồm hàng MySQL | 08/10/2026 |
 | `m03-local-compose-healthy.png` | M3 | App và MySQL healthy; migration exit 0 | 08/10/2026 |
 | `m03-local-mysql-smoke-pass.png` | M3 | Smoke test đọc/ghi MySQL và diagnostics đạt | 08/10/2026 |
 | `m03-mysql-firewall-redacted.png` | M3 | Networking: bốn firewall rule App Service, IP được che | 08/10/2026 |
