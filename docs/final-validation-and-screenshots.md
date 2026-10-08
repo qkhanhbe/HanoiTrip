@@ -86,6 +86,21 @@ có bản đồ, geometry bám đường, provider attribution và danh sách ph
   build SHA, status, duration; ba alert enabled; action group email; Alert History
   có Fired và Resolved.
 
+### M11 live — đường dẫn chụp ảnh
+
+Monitoring live đã được triển khai ngày 08/10/2026. Trong Azure Portal:
+
+1. **Dashboard** → mũi tên cạnh tên dashboard → chọn `HanoiTrip operations`.
+2. **Log Analytics workspaces** → `log-hanoitrip-bqk` → **Logs** → chạy KQL
+   trong `evidence/M11.md`.
+3. **Monitor** → **Alerts** → **Alert rules** → lọc resource group
+   `rg-hanoitrip-sandbox`; chụp ba rule enabled.
+4. **Monitor** → **Alerts** → **Action groups** → `ag-hanoitrip-bqk`; chụp
+   trạng thái enabled và receiver nhưng che địa chỉ email.
+5. **Monitor** → **Alerts** → trang alert history/list → time range 7 days →
+   tìm `hanoitrip-http-5xx`, thời điểm bắt đầu `06/10/2026 07:55:55 UTC` và
+   resolved `08:02:54 UTC`. Không chạy lại `/boom` hoặc phá kết nối MySQL.
+
 ## 5. Email và redaction
 
 Chụp email HTTP 5xx **Fired** và **Resolved**, nhưng che địa chỉ email, subscription

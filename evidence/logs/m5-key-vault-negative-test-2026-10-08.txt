@@ -1,0 +1,33 @@
+HanoiTrip Key Vault negative-test evidence
+Date: 2026-10-08
+
+Azure Activity Log sequence (UTC)
+---------------------------------
+03:26:24  Delete role assignment             Succeeded (HTTP 200)
+03:27:33  Update Web App Slot Configuration  Succeeded (HTTP 200)
+03:27:37  Restart Web App                     Succeeded (HTTP 200)
+03:27:39  Restart Web App Slot                Succeeded (HTTP 200)
+
+Controlled health probes after the forced Key Vault reference refresh:
+production_status=000
+staging_status=000
+
+03:28:23  Create role assignment             Succeeded (HTTP 201)
+03:28:32  Update Web App Slot Configuration  Succeeded (HTTP 200)
+03:29:22  Restart Web App                     Succeeded (HTTP 200)
+03:29:24  Restart Web App Slot                Succeeded (HTTP 200)
+
+Recovery verification
+---------------------
+key_vault_secrets_user_role_count=1
+production_health=200
+production_database=mysql
+staging_health=200
+staging_database=mysql
+
+The delete/create events are from Azure Activity Log. HTTP status 000 records
+the bounded test harness being unable to reach a healthy app after cache was
+invalidated; Azure Activity Log does not contain application probe responses.
+The current recovery checks were repeated read-only before this transcript was
+committed. Role assignment IDs, principal IDs, secret URIs and values are
+intentionally omitted.

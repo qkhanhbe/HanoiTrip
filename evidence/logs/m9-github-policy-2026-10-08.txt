@@ -1,0 +1,40 @@
+GitHub main-branch policy verification
+Date: 2026-10-08
+
+Ruleset
+-------
+name=protect-main
+enforcement=active
+target=branch
+include=default branch
+bypass_actor_count=0
+
+Rules:
+- deletion blocked
+- non-fast-forward/force-push blocked
+- linear history required
+- pull request required
+- unresolved review threads block merge
+- unattributed changes require extra approval
+- allowed merge method: squash
+- strict required-status-check policy enabled
+
+Required checks:
+- app-check
+- terraform-check
+- terraform-plan
+- container-check
+- source-security-gate
+
+Positive artifacts
+------------------
+CI run 37722671154: completed/success
+terraform-plan-f93ded4c0c9ef0bd80271fc122e6c32f69b89d9a: present, not expired
+
+CD run 37723130114: completed/success
+event=push
+headSha=42d24aa22897aa0067d2c8fbaf703840d76e3652
+release-42d24aa22897aa0067d2c8fbaf703840d76e3652: present, not expired
+
+Repository/ruleset numeric IDs and artifact download URLs are intentionally
+omitted. Negative merge-block screenshots are indexed separately in M9.md.

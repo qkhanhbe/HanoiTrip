@@ -1,0 +1,66 @@
+HanoiTrip live monitoring verification
+Date: 2026-10-08
+
+Terraform safety gate before apply
+----------------------------------
+Plan: 9 to add, 0 to change, 0 to destroy.
+
+azurerm_log_analytics_workspace.operations            create
+azurerm_monitor_action_group.operations                create
+azurerm_monitor_autoscale_setting.app                  create
+azurerm_monitor_diagnostic_setting.mysql               create
+azurerm_monitor_diagnostic_setting.web                 create
+azurerm_monitor_metric_alert.cpu                       create
+azurerm_monitor_metric_alert.http_5xx                  create
+azurerm_monitor_metric_alert.mysql_connections         create
+azurerm_portal_dashboard.operations                    create
+
+The plan was checked programmatically: exactly nine managed changes, and every
+action was create. Existing App Service, App Service Plan, MySQL, ACR and Key
+Vault resources are data sources and were not changed.
+
+Post-apply convergence
+----------------------
+Terraform state: 4 data sources + 9 managed monitoring resources.
+State blob lease after apply: available/unlocked.
+Second plan: No changes.
+
+Live Azure checks
+-----------------
+Dashboard: HanoiTrip operations
+Dashboard parts: 10 (one introduction + nine metric charts)
+Log Analytics: provisioned, retention=30 days
+App Service diagnostic setting: allLogs + AllMetrics, workspace attached
+MySQL diagnostic setting: allLogs + AllMetrics, workspace attached
+
+Alert                                  Enabled  Severity  Action groups
+hanoitrip-http-5xx                     true     1         1
+hanoitrip-cpu-high                     true     2         1
+hanoitrip-mysql-connections            true     2         1
+
+Action group: enabled, email receivers=1
+Autoscale: enabled, minimum=1, default=1, maximum=2, rules=2
+
+Structured logging check
+------------------------
+Twenty-four safe /health and /version requests were generated after diagnostics
+were enabled. The KQL query returned:
+
+rows=31
+completeRows=31
+distinctRequestIds=31
+
+A complete row has requestId, buildSha, numeric statusCode and durationMs.
+
+Alert trigger evidence
+----------------------
+The controlled Fired -> Resolved drill remains the 2026-10-06 run recorded in
+m6-m7-m11-validation-2026-10-06.txt. It was not repeated against production.
+Three probes to the disabled /boom endpoint returned 404 and generated no 5xx.
+
+Azure Alerts Management still returns the historical Sev1 alert instance:
+startDateTime=2026-10-06T07:55:55Z
+monitorCondition=Resolved
+lastModifiedDateTime=2026-10-06T08:02:54Z
+
+The full resource ID is intentionally omitted from this redacted transcript.

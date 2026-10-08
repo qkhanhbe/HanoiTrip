@@ -66,6 +66,10 @@ jobs:
         run: |
           terraform -chdir=terraform/app init -backend=false -input=false
           terraform -chdir=terraform/app validate
+      - name: Validate live monitoring stack
+        run: |
+          terraform -chdir=terraform/monitoring-live init -backend=false -input=false
+          terraform -chdir=terraform/monitoring-live validate
 
   terraform-plan:
     name: terraform-plan

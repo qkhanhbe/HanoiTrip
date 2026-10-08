@@ -19,8 +19,12 @@ Cập nhật: **08/10/2026**
   trường lỗi.
 - Production/staging đã đồng bộ access restriction default-deny cho site và SCM,
   hai nguồn WARP được allow.
-- M8 greenfield rebuild/lock/cleanup, M7 cost/autoscale và M11
-  dashboard/KQL/alerts Fired→Resolved giữ nguyên evidence đã xác minh.
+- M8 greenfield rebuild/lock/cleanup đã có transcript. Monitoring live hiện hành
+  được quản lý bởi root Terraform riêng `terraform/monitoring-live`: plan trước
+  apply `9 add/0 change/0 destroy`, plan sau apply `No changes`.
+- Dashboard `HanoiTrip operations`, Log Analytics/diagnostics, autoscale 1–2,
+  action group và ba alert hiện tồn tại trên sandbox. KQL live đã trả 31 dòng
+  structured log đầy đủ; alert history Fired→Resolved ngày 06/10 vẫn truy vấn được.
 
 ## Trạng thái an toàn sau kiểm chứng
 
@@ -29,6 +33,9 @@ Cập nhật: **08/10/2026**
 - Không còn rule `github-cd-temporary` ở App Service hoặc MySQL.
 - Không còn ACI/greenfield app stack kiểm thử chạy qua đêm; backend Terraform có
   lifecycle riêng vẫn được giữ.
+- State monitoring dùng key riêng `hanoitrip-monitoring-live.tfstate`; state app
+  greenfield vẫn rỗng. Không chạy `terraform/app apply` vào sandbox cũ trước khi
+  hoàn tất quy trình adoption/import và có zero-change baseline.
 - Role `Key Vault Secrets User` đã được phục hồi đúng một assignment; production
   và staging đều healthy.
 - Hai nhánh negative CI đã bị xóa; trang PR và run vẫn giữ làm evidence.
@@ -37,10 +44,11 @@ Cập nhật: **08/10/2026**
 
 Đây không còn là gap kỹ thuật MUST:
 
-1. Chạy một lượt local validation an toàn và chụp ảnh theo
-   [checklist cuối](final-validation-and-screenshots.md).
-2. Chèn screenshot/email đã che dữ liệu nhạy cảm vào báo cáo hoặc thư mục evidence
-   được chọn.
+1. Chụp năm nhóm ảnh M11 theo
+   [checklist cuối](final-validation-and-screenshots.md): dashboard, KQL, ba alert,
+   action group và Alert History Fired/Resolved.
+2. Chụp email Fired/Resolved nếu còn trong hộp thư; che email/subscription/resource
+   ID trước khi lưu.
 3. Hoàn thiện hai cross-review, live demo và báo cáo theo đề gốc.
 4. Sau khi bộ evidence đóng gói xong mới chuyển sang evaluate/cải tiến sản phẩm.
 5. Nếu cần đồng bộ GitLab để review, người dùng tự nhập username/password; không

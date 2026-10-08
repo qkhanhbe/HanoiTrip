@@ -1,6 +1,10 @@
 # Terraform
 
-`bootstrap/` creates the Azure Blob backend once. `app/` creates the application stack. The split prevents `terraform destroy` for the app from deleting its own state.
+`bootstrap/` creates the Azure Blob backend once. `app/` creates a complete
+greenfield application stack. `monitoring-live/` adopts only monitoring for the
+older live sandbox by reading its existing App Service, plan and MySQL server as
+data sources. The split prevents an app destroy from deleting its own state and
+prevents monitoring changes from claiming ownership of the live workload.
 
 > Safety: the current live sandbox was created before this state existed. Do not
 > point `terraform/app` at that resource group or run `apply` against it until
@@ -102,6 +106,32 @@ Importing the manually created stack alone does not satisfy M8. The required
 evidence is still a logged, unattended `destroy` followed by `apply`, application
 health/database checks, and a lock-contention demonstration.
 
+## Live monitoring overlay
+
+The existing sandbox has an empty application state and must not be targeted by
+`terraform/app apply`. The narrow `monitoring-live/` root is the only Terraform
+configuration intended for that sandbox until the full adoption procedure above
+has reached a zero-change baseline. It owns exactly nine resources: one Log
+Analytics workspace, two diagnostic settings, one action group, three metric
+alerts, one autoscale setting and one Azure Portal dashboard. Core application
+resources are data sources only.
+
+Use a dedicated backend key so the overlay cannot collide with the empty
+greenfield app state:
+
+```bash
+cp terraform/monitoring-live/backend.hcl.example terraform/monitoring-live/backend.hcl
+export TF_VAR_alert_email='<receiver>'
+terraform -chdir=terraform/monitoring-live init -backend-config=backend.hcl
+terraform -chdir=terraform/monitoring-live plan -out=monitoring.tfplan
+terraform -chdir=terraform/monitoring-live apply monitoring.tfplan
+terraform -chdir=terraform/monitoring-live plan -detailed-exitcode
+```
+
+Before applying, inspect the saved plan and stop unless it is limited to those
+nine creates with zero updates, replacements or deletes. Never commit the email,
+backend configuration, plan or state.
+
 Local validation without Azure:
 
 ```bash
@@ -110,6 +140,8 @@ terraform -chdir=terraform/bootstrap init -backend=false -input=false
 terraform -chdir=terraform/bootstrap validate
 terraform -chdir=terraform/app init -backend=false -input=false
 terraform -chdir=terraform/app validate
+terraform -chdir=terraform/monitoring-live init -backend=false -input=false
+terraform -chdir=terraform/monitoring-live validate
 ```
 
 Provider validation cannot prove the selected SKU, metric name, permissions or network path work in a real subscription; preserve plan/apply/destroy logs as evidence.
