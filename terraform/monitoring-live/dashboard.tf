@@ -3,38 +3,56 @@ locals {
     requests = {
       resource_id = data.azurerm_linux_web_app.live.id
       metric      = "Requests"
+      aggregation = "Total"
+      title       = "App requests"
     }
     response_time = {
       resource_id = data.azurerm_linux_web_app.live.id
       metric      = "AverageResponseTime"
+      aggregation = "Average"
+      title       = "App response time"
     }
     http_5xx = {
       resource_id = data.azurerm_linux_web_app.live.id
       metric      = "Http5xx"
+      aggregation = "Total"
+      title       = "App HTTP 5xx"
     }
     cpu = {
       resource_id = data.azurerm_service_plan.live.id
       metric      = "CpuPercentage"
+      aggregation = "Average"
+      title       = "App Service CPU"
     }
     memory = {
       resource_id = data.azurerm_service_plan.live.id
       metric      = "MemoryPercentage"
+      aggregation = "Average"
+      title       = "App Service memory"
     }
     http_queue = {
       resource_id = data.azurerm_service_plan.live.id
       metric      = "HttpQueueLength"
+      aggregation = "Average"
+      title       = "App Service HTTP queue"
     }
     mysql_cpu = {
       resource_id = data.azurerm_mysql_flexible_server.live.id
       metric      = "cpu_percent"
+      aggregation = "Average"
+      title       = "MySQL CPU"
     }
     mysql_connections = {
       resource_id = data.azurerm_mysql_flexible_server.live.id
       metric      = "active_connections"
+      aggregation = "Average"
+      title       = "MySQL active connections"
     }
     mysql_storage = {
       resource_id = data.azurerm_mysql_flexible_server.live.id
       metric      = "storage_percent"
+      aggregation = "Average"
+      title       = "MySQL storage"
     }
   }
 
@@ -59,19 +77,30 @@ locals {
         rowSpan = 4
       }
       metadata = {
-        inputs = [{
-          name = "queryInputs"
-          value = {
-            timespan  = { duration = "PT1H" }
-            id        = definition.resource_id
-            chartType = 0
-            metrics = [{
-              name       = definition.metric
-              resourceId = definition.resource_id
-            }]
+        inputs = []
+        type   = "Extension/Microsoft_Azure_Monitoring/PartType/MetricsChartPart"
+        settings = {
+          content = {
+            options = {
+              chart = {
+                metrics = [{
+                  resourceMetadata = {
+                    id = definition.resource_id
+                  }
+                  name = definition.metric
+                  aggregationType = {
+                    type = definition.aggregation
+                  }
+                }]
+                title     = definition.title
+                titleKind = 1
+                visualization = {
+                  chartType = 2
+                }
+              }
+            }
           }
-        }]
-        type = "Extension/Microsoft_Azure_Monitoring/PartType/MetricsChartPart"
+        }
       }
     }
   }

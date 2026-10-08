@@ -64,3 +64,22 @@ monitorCondition=Resolved
 lastModifiedDateTime=2026-10-06T08:02:54Z
 
 The full resource ID is intentionally omitted from this redacted transcript.
+
+Dashboard render fix
+--------------------
+The first Portal render exposed that the legacy queryInputs metric-tile schema
+created tiles but failed to render every chart. Azure Monitor itself remained
+healthy: all nine metric queries returned 60 one-minute samples for the last
+hour.
+
+The dashboard-only saved plan was reviewed before apply:
+
+Plan: 0 to add, 1 to change, 0 to destroy.
+Changed address: azurerm_portal_dashboard.operations
+Unchanged managed resources: 8
+
+The dashboard was updated to chart settings with explicit resourceMetadata and
+aggregationType. Live resource verification found 10 parts, nine resource-bound
+metric charts and zero legacy queryInputs. The post-apply plan returned No
+changes. No App Service, MySQL, alert, diagnostic setting or autoscale resource
+was changed.

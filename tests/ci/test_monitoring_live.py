@@ -62,6 +62,15 @@ class MonitoringLiveTests(unittest.TestCase):
         self.assertIn('retention_in_days   = 30', self.terraform)
         self.assertIn('hidden-title = "HanoiTrip operations"', self.terraform)
 
+    def test_dashboard_uses_renderable_metric_chart_schema(self):
+        dashboard = (MONITORING / "dashboard.tf").read_text(encoding="utf-8")
+
+        self.assertIn("resourceMetadata", dashboard)
+        self.assertIn("aggregationType", dashboard)
+        self.assertIn("visualization", dashboard)
+        self.assertIn('titleKind = 1', dashboard)
+        self.assertNotIn('name = "queryInputs"', dashboard)
+
     def test_monitoring_uses_a_distinct_remote_state_key(self):
         backend = (MONITORING / "backend.hcl.example").read_text(encoding="utf-8")
         self.assertIn('key                  = "hanoitrip-monitoring-live.tfstate"', backend)
