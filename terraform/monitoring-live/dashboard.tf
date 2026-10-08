@@ -77,30 +77,32 @@ locals {
         rowSpan = 4
       }
       metadata = {
-        inputs = []
-        type   = "Extension/Microsoft_Azure_Monitoring/PartType/MetricsChartPart"
-        settings = {
-          content = {
-            options = {
+        type = "Extension/HubsExtension/PartType/MonitorChartPart"
+        inputs = [
+          {
+            name = "options"
+            value = {
               chart = {
                 metrics = [{
                   resourceMetadata = {
                     id = definition.resource_id
                   }
-                  name = definition.metric
-                  aggregationType = {
-                    type = definition.aggregation
-                  }
+                  name            = definition.metric
+                  aggregationType = definition.aggregation == "Total" ? 1 : 4
+                  namespace       = join("/", slice(split("/", definition.resource_id), 6, 8))
                 }]
                 title     = definition.title
                 titleKind = 1
                 visualization = {
                   chartType = 2
                 }
+                timespan = { relative = { duration = 3600000 } }
               }
             }
-          }
-        }
+          },
+          { name = "sharedTimeRange", isOptional = true }
+        ]
+        settings = {}
       }
     }
   }
