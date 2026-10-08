@@ -31,7 +31,7 @@ case "$scan_job" in
       exit 2
     fi
     docker run "${container_args[@]}" "$gitleaks_image" git /src \
-      --log-opts=--all --redact=100 --exit-code 0 \
+      --log-opts=HEAD --redact=100 --exit-code 0 \
       --report-format json --report-path /reports/gitleaks.json
     ;;
   trivy-source-sbom)
