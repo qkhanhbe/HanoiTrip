@@ -12,7 +12,8 @@ RUN apk upgrade --no-cache \
     && rm -rf /usr/local/lib/node_modules/npm \
       /usr/local/bin/npm /usr/local/bin/npx \
       /usr/local/lib/node_modules/corepack \
-      /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg
+      /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg \
+      /opt/yarn-v1.22.22
 WORKDIR /app
 ARG BUILD_SHA=local-dev
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=8080 BUILD_SHA=${BUILD_SHA}

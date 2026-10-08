@@ -216,6 +216,7 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertIn("apk upgrade --no-cache", dockerfile)
         self.assertIn("/usr/local/lib/node_modules/npm", dockerfile)
         self.assertIn("/usr/local/lib/node_modules/corepack", dockerfile)
+        self.assertIn("/opt/yarn-v1.22.22", dockerfile)
         self.assertIn("USER node", dockerfile)
 
     def test_state_storage_uses_entra_data_plane_and_keeps_queue_logging(self):
