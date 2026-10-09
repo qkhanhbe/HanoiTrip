@@ -104,11 +104,17 @@ Monitoring live đã được triển khai ngày 08/10/2026. Trong Azure Portal:
    tìm `hanoitrip-http-5xx`, thời điểm bắt đầu `06/10/2026 07:55:55 UTC` và
    resolved `08:02:54 UTC`. Không chạy lại `/boom` hoặc phá kết nối MySQL.
 
+Năm nhóm ảnh trên đã được thu thập và lập chỉ mục trong
+`evidence/screenshots/README.md`. Action group vẫn hiển thị email verification
+`Pending`; ảnh Summary/History là drill trên stack test đã teardown, không phải
+production hiện tại.
+
 ## 5. Email và redaction
 
-Chụp email HTTP 5xx **Fired** và **Resolved**, nhưng che địa chỉ email, subscription
-ID và resource ID đầy đủ. Tất cả ảnh phải tránh token, password, secret value,
-connection string và API key. Có thể giữ bốn chữ số cuối của ID để đối chiếu.
+Nếu nhận được email HTTP 5xx **Fired** và **Resolved**, có thể bổ sung làm
+evidence; phải che địa chỉ email, subscription ID và resource ID đầy đủ. Không
+coi email là đã nhận khi Portal còn hiển thị `Pending`. Tất cả ảnh phải tránh
+token, password, secret value, connection string và API key.
 
 ## 6. GitLab review thủ công
 

@@ -6,6 +6,12 @@ token, password, connection string hoặc API key. Tên file dùng tiền tố m
 
 | File | Mốc | Nội dung | Ngày chụp |
 | --- | --- | --- | --- |
+| `m07-autoscale-max-two.png` | M7 | Custom autoscale: min/default/max 1/1/2; CPU >70 tăng 1, <35 giảm 1 | 08/10/2026 |
+| `m11-alert-summary-redacted.png` | M11 | Stack test: 19 HTTP 5xx vượt ngưỡng 5, Resolved; giữ thông báo target đã bị di chuyển/xóa | 08/10/2026 |
+| `m11-alert-history-redacted.png` | M11 | Stack test: Fired 14:55 → Resolved 15:02 ngày 06/10, cùng action group được gọi hai lần | 08/10/2026 |
+| `m11-action-group-redacted.png` | M11 | Action group có Email receiver; verification Pending; che subscription ID và email | 08/10/2026 |
+| `m11-alert-rules.png` | M11 | Ba metric alert Enabled; rõ condition, severity và target scope | 08/10/2026 |
+| `m11-kql-request-logs.png` | M11 | KQL trả 20 request log, đủ timestamp, requestId, buildSha, statusCode và durationMs | 08/10/2026 |
 | `m11-dashboard-app-infra.png` | M11 | Sáu chart App/App Service render dữ liệu; chưa bao gồm hàng MySQL | 08/10/2026 |
 | `m11-dashboard-mysql.png` | M11 | Ba chart MySQL CPU, active connections và storage có dữ liệu | 08/10/2026 |
 | `m03-local-compose-healthy.png` | M3 | App và MySQL healthy; migration exit 0 | 08/10/2026 |
@@ -32,9 +38,14 @@ token, password, connection string hoặc API key. Tên file dùng tiền tố m
 | `m07-mysql-flexible-server-b1ms.png` | M7 | MySQL B1ms, 1 vCore/2 GiB, 20 GiB storage, backup retention 7 ngày; subscription ID được che | 08/10/2026 |
 
 Các ảnh được sao chép nguyên bản từ screenshot người dùng cung cấp và chỉ đổi
-tên, ngoại trừ năm ảnh đã redaction: `m03-mysql-firewall-redacted.png`,
+tên, ngoại trừ tám ảnh đã redaction: `m03-mysql-firewall-redacted.png`,
 `m06-production-access-restrictions.png`, `m06-staging-access-restrictions.png`,
-`m07-app-service-plan-s1.png` và `m07-mysql-flexible-server-b1ms.png`. Ảnh
+`m07-app-service-plan-s1.png`, `m07-mysql-flexible-server-b1ms.png` và
+`m11-action-group-redacted.png`, `m11-alert-summary-redacted.png` và
+`m11-alert-history-redacted.png`. Hai ảnh alert Summary/History chỉ che
+Subscription ID; pixel ngoài vùng che đã được kiểm tra không đổi.
+Ảnh action group M11 che Subscription ID và email bằng
+hai hình chữ nhật đặc; đã kiểm tra pixel ngoài vùng che không đổi. Ảnh
 firewall MySQL che 10 vùng chứa IP; mỗi ảnh M6 che hai CIDR WARP; hai ảnh M7
 che subscription ID. Pixel bên ngoài vùng che được giữ nguyên. Các bản gốc có
 IP không được đưa vào repository.

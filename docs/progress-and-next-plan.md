@@ -61,16 +61,19 @@ Cập nhật: **08/10/2026**
 | Mốc | Kết quả kỹ thuật | Evidence đóng gói | Việc còn lại |
 | --- | --- | --- | --- |
 | M1–M10 | Đạt | Đủ log/ảnh/output trong `evidence/M1.md`–`M10.md` | Không |
-| M11 | Đạt | Log Terraform/KQL/alert drill đã có | Năm nhóm ảnh Portal bên dưới |
+| M11 | Có evidence kỹ thuật, còn hai giới hạn được ghi rõ | Dashboard, KQL, ba alert, action group và lịch sử Fired/Resolved đã có ảnh | Email receiver còn Pending; dashboard đang hiển thị count thay vì failure percentage |
 
-Năm nhóm ảnh M11 là dashboard, kết quả KQL, danh sách ba alert rule, action
-group và Alert History Fired/Resolved. Email Fired/Resolved chỉ là evidence bổ
-sung nếu còn lưu; không cần trigger lại sự cố production. Hai cross-review và
-live demo là deliverable cuối đề, tách khỏi tiêu chí kỹ thuật M1–M11.
+Năm nhóm ảnh M11 đã được lưu: dashboard, kết quả KQL, danh sách ba alert rule,
+action group và Alert History Fired/Resolved. Email Fired/Resolved chỉ là
+evidence bổ sung nếu nhận được; không cần trigger lại sự cố production. Hai
+cross-review và live demo là deliverable cuối đề, tách khỏi tiêu chí kỹ thuật
+M1–M11.
 
 ## Blocker còn lại
 
-Không còn blocker kỹ thuật cho M1–M11. Các phụ thuộc còn lại là bằng chứng do người
-dùng phải chụp/xác nhận: email alert Fired/Resolved và ảnh Azure Portal/GitHub.
-GitLab credential là thao tác thủ công, nhưng GitLab không phải đường CD và không
-chặn bộ MUST trên GitHub/Azure.
+Không còn ảnh Portal bắt buộc phải chụp thêm. Action group đã cấu hình email
+receiver nhưng Portal vẫn hiển thị verification `Pending`, nên chưa có evidence
+email được nhận. Dashboard hiện dùng Requests/HTTP 5xx dạng count theo khoảng
+thời gian, chưa phải failure percentage; `AverageResponseTime` bị Portal đánh
+dấu deprecated. GitLab credential là thao tác thủ công, nhưng GitLab không phải
+đường CD và không chặn evidence GitHub/Azure.
