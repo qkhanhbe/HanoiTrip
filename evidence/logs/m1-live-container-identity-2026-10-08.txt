@@ -1,0 +1,36 @@
+HanoiTrip live container identity verification
+Date: 2026-10-08
+
+Registry
+--------
+name=hanoitripbqk
+adminUserEnabled=false
+
+Production App Service identity
+-------------------------------
+systemAssigned=false
+userAssignedCount=1
+
+Production main sitecontainer
+-----------------------------
+containerName=main
+isMain=true
+hasUserAssignedIdentity=true
+imageRepository=hanoitrip
+imageTag=42d24aa22897aa0067d2c8fbaf703840d76e3652
+
+Staging main sitecontainer
+--------------------------
+containerName=main
+isMain=true
+hasUserAssignedIdentity=true
+imageRepository=hanoitrip
+imageTag=a773bd5e1cf5e4a2add845eedf93cd5283f67f73
+
+Production runtime and registry
+-------------------------------
+/version buildSha=42d24aa22897aa0067d2c8fbaf703840d76e3652
+matching ACR tag exists=true
+
+Client IDs, principal IDs, resource IDs and registry digests are intentionally
+omitted. Role scope is shown separately in the redacted M4 IAM screenshot.

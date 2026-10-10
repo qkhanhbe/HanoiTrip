@@ -86,11 +86,35 @@ có bản đồ, geometry bám đường, provider attribution và danh sách ph
   build SHA, status, duration; ba alert enabled; action group email; Alert History
   có Fired và Resolved.
 
+### M11 live — đường dẫn chụp ảnh
+
+Monitoring live đã được triển khai ngày 08/10/2026. Trong Azure Portal:
+
+1. **Dashboard** → mũi tên cạnh tên dashboard → chọn shared dashboard
+   `HanoiTrip operations`. Nếu dropdown chỉ hiện private dashboard, dùng thanh
+   tìm kiếm toàn cục của Azure Portal để mở resource
+   `dashboard-hanoitrip-bqk` trong `rg-hanoitrip-sandbox`, rồi chọn **Open**.
+2. **Log Analytics workspaces** → `log-hanoitrip-bqk` → **Logs** → chạy KQL
+   trong `evidence/M11.md`.
+3. **Monitor** → **Alerts** → **Alert rules** → lọc resource group
+   `rg-hanoitrip-sandbox`; chụp ba rule enabled.
+4. **Monitor** → **Alerts** → **Action groups** → `ag-hanoitrip-bqk`; chụp
+   trạng thái enabled và receiver nhưng che địa chỉ email.
+5. **Monitor** → **Alerts** → trang alert history/list → time range 7 days →
+   tìm `hanoitrip-http-5xx`, thời điểm bắt đầu `06/10/2026 07:55:55 UTC` và
+   resolved `08:02:54 UTC`. Không chạy lại `/boom` hoặc phá kết nối MySQL.
+
+Năm nhóm ảnh trên đã được thu thập và lập chỉ mục trong
+`evidence/screenshots/README.md`. Action group vẫn hiển thị email verification
+`Pending`; ảnh Summary/History là drill trên stack test đã teardown, không phải
+production hiện tại.
+
 ## 5. Email và redaction
 
-Chụp email HTTP 5xx **Fired** và **Resolved**, nhưng che địa chỉ email, subscription
-ID và resource ID đầy đủ. Tất cả ảnh phải tránh token, password, secret value,
-connection string và API key. Có thể giữ bốn chữ số cuối của ID để đối chiếu.
+Nếu nhận được email HTTP 5xx **Fired** và **Resolved**, có thể bổ sung làm
+evidence; phải che địa chỉ email, subscription ID và resource ID đầy đủ. Không
+coi email là đã nhận khi Portal còn hiển thị `Pending`. Tất cả ảnh phải tránh
+token, password, secret value, connection string và API key.
 
 ## 6. GitLab review thủ công
 
