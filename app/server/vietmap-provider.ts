@@ -8,6 +8,7 @@ import {
   type RoadTripInput,
 } from '../shared/contracts.js';
 import { AppError } from './errors.js';
+import { normalizeTraffic } from './traffic.js';
 
 const baseUrl = 'https://maps.vietmap.vn/api';
 const autocompleteResponse = z.array(
@@ -35,6 +36,7 @@ const routeResponse = z.object({
         distance: z.number().nonnegative(),
         time: z.number().int().nonnegative(),
         points_encoded: z.literal(false),
+        annotations: z.unknown().optional(),
         points: z.object({
           type: z.literal('LineString'),
           coordinates: z.array(geoJsonCoordinate).min(2),
@@ -195,6 +197,7 @@ export function vietmapProviders(
           points_encoded: 'false',
           vehicle: input.mode,
           alternative: 'true',
+          annotations: 'congestion',
         });
         params.append('point', `${input.origin.latitude},${input.origin.longitude}`);
         params.append('point', `${input.destination.latitude},${input.destination.longitude}`);
@@ -228,6 +231,10 @@ export function vietmapProviders(
             mode: input.mode,
             durationSeconds: Math.round(path.time / 1000),
             distanceMeters: Math.round(path.distance),
+            traffic: {
+              fetchedAt: generatedAt,
+              segments: normalizeTraffic(path.annotations, path.points.coordinates.length),
+            },
             geometry: {
               type: 'LineString',
               coordinates: path.points.coordinates,

@@ -13,12 +13,14 @@ import type { ItemRepository } from './repository.js';
 import type { RoutesProvider } from './routes-provider.js';
 import { AppError } from './errors.js';
 import type { PlaceProvider, RoadRoutingProvider } from './vietmap-provider.js';
+import type { VietmapBasemapProvider } from './vietmap-basemap.js';
 
 interface Dependencies {
   repository: ItemRepository;
   routes: RoutesProvider;
   places?: PlaceProvider;
   roadRoutes?: RoadRoutingProvider;
+  basemap?: VietmapBasemapProvider;
   logger?: boolean;
   logStream?: NodeJS.WritableStream;
   load?: (seconds: number) => Promise<unknown>;
@@ -156,10 +158,68 @@ export async function createApp(config: Config, deps: Dependencies) {
   app.get('/config', async () => ({
     routesMode: config.ROUTES_MODE,
     roadProvider: config.ROAD_PROVIDER,
+    basemapProvider: config.BASEMAP_PROVIDER,
     mapsBrowserKey: config.GOOGLE_MAPS_BROWSER_KEY,
     storage: config.DB_MODE,
     buildSha: config.BUILD_SHA,
   }));
+  app.get(
+    '/v1/map/style',
+    { config: { rateLimit: { max: 12, timeWindow: '1 minute' } } },
+    async (_request, reply) => {
+      if (!deps.basemap)
+        throw new AppError(503, 'FEATURE_UNAVAILABLE', 'Bản đồ VIETMAP chưa được cấu hình.');
+      reply.header('cache-control', 'private, max-age=3600');
+      return deps.basemap.getStyle();
+    },
+  );
+  app.get(
+    '/v1/map/tiles/*',
+    { config: { rateLimit: { max: 150, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      if (!deps.basemap)
+        throw new AppError(503, 'FEATURE_UNAVAILABLE', 'Bản đồ VIETMAP chưa được cấu hình.');
+      const match = (request.params as { '*': string })['*'].match(
+        /^(vlc-\d{8})\/(\d{1,2})\/(\d{1,8})\/(\d{1,8})\.pbf$/,
+      );
+      if (!match) throw new AppError(404, 'NOT_FOUND', 'Không tìm thấy ô bản đồ.');
+      const z = Number(match[2]);
+      const x = Number(match[3]);
+      const y = Number(match[4]);
+      if (z > 24 || x >= 2 ** z || y >= 2 ** z)
+        throw new AppError(400, 'INVALID_MAP_TILE', 'Ô bản đồ chưa hợp lệ.');
+      const asset = await deps.basemap.getTile(match[1], z, x, y);
+      reply.type(asset.contentType).header('cache-control', 'public, max-age=86400, immutable');
+      return reply.send(asset.body);
+    },
+  );
+  app.get(
+    '/v1/map/sprite/:file',
+    { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      if (!deps.basemap)
+        throw new AppError(503, 'FEATURE_UNAVAILABLE', 'Bản đồ VIETMAP chưa được cấu hình.');
+      const { file } = z.object({ file: z.string().max(32) }).parse(request.params);
+      const asset = await deps.basemap.getSprite(file);
+      reply.type(asset.contentType).header('cache-control', 'public, max-age=86400, immutable');
+      return reply.send(asset.body);
+    },
+  );
+  app.get(
+    '/v1/map/fonts/*',
+    { config: { rateLimit: { max: 120, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      if (!deps.basemap)
+        throw new AppError(503, 'FEATURE_UNAVAILABLE', 'Bản đồ VIETMAP chưa được cấu hình.');
+      const match = (request.params as { '*': string })['*'].match(
+        /^(.+)\/(\d{1,6}-\d{1,6})\.pbf$/,
+      );
+      if (!match) throw new AppError(404, 'NOT_FOUND', 'Không tìm thấy phông chữ bản đồ.');
+      const asset = await deps.basemap.getGlyph(decodeURIComponent(match[1]), match[2]);
+      reply.type(asset.contentType).header('cache-control', 'public, max-age=86400, immutable');
+      return reply.send(asset.body);
+    },
+  );
   const requirePlaces = () => {
     if (!deps.places)
       throw new AppError(503, 'FEATURE_UNAVAILABLE', 'Tìm kiếm địa điểm thật chưa được cấu hình.');

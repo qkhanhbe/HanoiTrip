@@ -1,5 +1,32 @@
 # CI/CD GitHub Actions
 
+## Kế hoạch staging và promote thủ công — 14/10/2026
+
+Xem [plan](staging-and-release-plan.md) và [runbook swap](manual-slot-swap.md).
+Workflow mới chỉ swap tự động khi cả ba điều kiện cùng đúng: chạy bằng
+`workflow_dispatch`, chọn `promote=true` và `AZURE_PRODUCTION_SWAP_ENABLED=true`.
+Push vào main không tự swap. Cờ này không chặn người vận hành swap trong Portal.
+
+`AZURE_STAGING_BASEMAP_PROVIDER` chọn `openfreemap` (mặc định) hoặc `vietmap`.
+Khi chọn VIETMAP, bắt buộc đặt `AZURE_VIETMAP_TILEMAP_API_KEY_SECRET` là **tên**
+secret Key Vault, không phải giá trị key. CD gắn reference cho staging rồi kiểm tra
+config/style/tile/sprite bằng `scripts/smoke-basemap.mjs`; live probe có dùng quota.
+Kiểm tra browser/font/search/route vẫn cần thực hiện trước khi người vận hành swap.
+
+App CI xuất JUnit và coverage (JSON/LCOV/Cobertura), tách log format/lint/typecheck/test/build.
+Coverage tính toàn bộ `app`, kể cả file chưa được test import; ngưỡng chống tụt
+lines/statements/functions/branches là 63/61/63/59, dựa trên baseline local đo
+14/10/2026. Đây chưa phải độ phủ đầy đủ; browser test chưa được gộp coverage.
+`config-check` kiểm tra tracked JSON, Bash syntax, ShellCheck, actionlint và Compose.
+Cập nhật required checks sau khi job mới đã chạy thành công trên remote.
+
+CD bổ sung `release-check` chạy format/lint/typecheck/test/build, policy tests và
+browser road smoke trên đúng `GITHUB_SHA`. `release-security` gọi source scan
+workflow cùng commit, không kế thừa cloud secrets. `deploy` phải đợi cả hai thành
+công; không dựa vào kết quả PR của một SHA khác. Cách tái sử dụng này theo
+[GitHub reusable workflows](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows).
+Các bước mới hiện đã sửa local, chưa được xác minh trên Actions.
+
 ## Flow chính từ 29/09/2026
 
 GitHub là nguồn phát hành chính (`origin`); GitLab công ty (`gitlab`) là nơi

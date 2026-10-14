@@ -30,6 +30,7 @@ describe('HTTP contracts', () => {
     expect((await app.inject('/health')).json()).toEqual({ status: 'ok', database: 'memory' });
     expect((await app.inject('/version')).json().buildSha).toBe('test-sha');
     expect(Object.keys((await app.inject('/config')).json()).sort()).toEqual([
+      'basemapProvider',
       'buildSha',
       'mapsBrowserKey',
       'roadProvider',
@@ -179,6 +180,45 @@ describe('HTTP contracts', () => {
     ).toBe(200);
     expect(roadRoutes).toHaveBeenCalledWith({ ...input, mode: 'motorcycle' });
   });
+  it('serves VIETMAP basemap assets through the server without exposing the provider key', async () => {
+    const key = 'fixture-map-key-not-a-secret';
+    const basemap = {
+      getStyle: vi.fn(async () => ({ version: 8, name: 'VIETMAP Street' })),
+      getTile: vi.fn(async () => ({
+        body: Buffer.from('tile'),
+        contentType: 'application/x-protobuf',
+      })),
+      getSprite: vi.fn(async () => ({ body: Buffer.from('{}'), contentType: 'application/json' })),
+      getGlyph: vi.fn(async () => ({
+        body: Buffer.from('glyph'),
+        contentType: 'application/x-protobuf',
+      })),
+    };
+    await setup(
+      { repository: new MemoryRepository(), routes: demoProvider, basemap },
+      { BASEMAP_PROVIDER: 'vietmap', VIETMAP_TILEMAP_API_KEY: key },
+    );
+    const config = await app.inject('/config');
+    expect(config.json()).toMatchObject({ basemapProvider: 'vietmap' });
+    expect(config.body).not.toContain(key);
+
+    const style = await app.inject('/v1/map/style');
+    expect(style.statusCode).toBe(200);
+    expect(style.json()).toEqual({ version: 8, name: 'VIETMAP Street' });
+    expect(style.body).not.toContain(key);
+
+    const tile = await app.inject('/v1/map/tiles/vlc-20261008/12/2305/1453.pbf');
+    expect(tile.statusCode).toBe(200);
+    expect(tile.headers['cache-control']).toContain('immutable');
+    expect(basemap.getTile).toHaveBeenCalledWith('vlc-20261008', 12, 2305, 1453);
+    expect((await app.inject('/v1/map/tiles/vlc-20261008/12/9999/1453.pbf')).statusCode).toBe(400);
+
+    expect((await app.inject('/v1/map/sprite/base.json')).statusCode).toBe(200);
+    expect((await app.inject('/v1/map/fonts/Noto%20Sans%20Regular/0-255.pbf')).statusCode).toBe(
+      200,
+    );
+    expect(basemap.getGlyph).toHaveBeenCalledWith('Noto Sans Regular', '0-255');
+  });
   it('logs provider operation metadata without query, token or key material', async () => {
     let output = '';
     const stream = new Writable({
@@ -304,6 +344,11 @@ describe('HTTP contracts', () => {
   });
 });
 describe('configuration safeguards', () => {
+  it('supports a separate tile key without granting access to road services', () => {
+    const env = { BASEMAP_PROVIDER: 'vietmap', VIETMAP_TILEMAP_API_KEY: 'fixture-tile-key' };
+    expect(readConfig(env).VIETMAP_TILEMAP_API_KEY).toBe('fixture-tile-key');
+    expect(() => readConfig({ ...env, ROAD_PROVIDER: 'vietmap' })).toThrow('VIETMAP_API_KEY');
+  });
   it('keeps startup migration opt-in', () => {
     expect(readConfig({}).DB_MIGRATE_ON_START).toBe(false);
     expect(readConfig({ DB_MIGRATE_ON_START: 'true' }).DB_MIGRATE_ON_START).toBe(true);
@@ -312,6 +357,7 @@ describe('configuration safeguards', () => {
   it('requires separate live keys and verified production DB TLS', () => {
     expect(() => readConfig({ ROUTES_MODE: 'google' })).toThrow('separate');
     expect(() => readConfig({ ROAD_PROVIDER: 'vietmap' })).toThrow('VIETMAP_API_KEY');
+    expect(() => readConfig({ BASEMAP_PROVIDER: 'vietmap' })).toThrow('VIETMAP_API_KEY');
     expect(() => readConfig({ NODE_ENV: 'production' })).toThrow('verified TLS');
     expect(() => readConfig({ DB_MODE: 'mysql' })).toThrow('password');
     expect(() => readConfig({ PORT: '0' })).toThrow('PORT');

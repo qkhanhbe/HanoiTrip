@@ -3,9 +3,14 @@ import { createApp } from './app.js';
 import { createPool, itemsDDL, MemoryRepository, MysqlRepository } from './repository.js';
 import { demoProvider, googleProvider } from './routes-provider.js';
 import { vietmapProviders } from './vietmap-provider.js';
+import { vietmapBasemap } from './vietmap-basemap.js';
 const config = readConfig();
 const vietmap =
   config.ROAD_PROVIDER === 'vietmap' ? vietmapProviders(config.VIETMAP_API_KEY) : undefined;
+const basemap =
+  config.BASEMAP_PROVIDER === 'vietmap'
+    ? vietmapBasemap(config.VIETMAP_TILEMAP_API_KEY || config.VIETMAP_API_KEY)
+    : undefined;
 const mysqlPool = config.DB_MODE === 'mysql' ? createPool(config) : undefined;
 if (mysqlPool && config.DB_MIGRATE_ON_START) {
   await mysqlPool.query(itemsDDL);
@@ -19,6 +24,7 @@ const app = await createApp(config, {
     config.ROUTES_MODE === 'google' ? googleProvider(config.GOOGLE_ROUTES_API_KEY) : demoProvider,
   places: vietmap?.places,
   roadRoutes: vietmap?.roadRoutes,
+  basemap,
 });
 for (const signal of ['SIGINT', 'SIGTERM'])
   process.once(signal, () => {

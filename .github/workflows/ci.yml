@@ -26,8 +26,65 @@ jobs:
           node-version-file: .node-version
           cache: npm
       - run: npm ci --include=dev --engine-strict --registry=https://registry.npmjs.org/ --strict-ssl=true --no-audit --no-fund
-      - run: npm run check
+      - name: Formatting
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: TypeScript
+        run: npm run typecheck
+      - name: Unit, API and UI tests
+        run: npm test -- --coverage --reporter=default --reporter=junit --outputFile.junit=test-results/unit.xml
+      - name: Production build
+        run: npm run build
       - run: python3 -m unittest discover -s tests/ci -v
+      - name: Preserve test report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: unit-api-ui-results
+          path: |
+            test-results/unit.xml
+            coverage/coverage-summary.json
+            coverage/cobertura-coverage.xml
+            coverage/lcov.info
+          if-no-files-found: error
+          retention-days: 7
+
+  config-check:
+    name: config-check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - name: Validate tracked JSON and shell syntax
+        run: |
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import subprocess
+          paths = subprocess.check_output(['git', 'ls-files', '-z']).decode().split('\0')
+          for name in filter(None, paths):
+              path = pathlib.Path(name)
+              if path.suffix == '.json':
+                  json.loads(path.read_text(encoding='utf-8'))
+              elif path.suffix == '.sh':
+                  subprocess.run(['bash', '-n', str(path)], check=True)
+          PY
+      - name: ShellCheck and Actions workflow validation
+        run: |
+          docker run --rm --volume "$PWD:/repo:ro" --workdir /repo \
+            --entrypoint sh \
+            rhysd/actionlint:1.7.7@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9 \
+            -c 'find scripts -name "*.sh" -exec shellcheck --severity=warning {} + && actionlint -pyflakes='
+      - name: Validate Compose without starting services
+        env:
+          MYSQL_PASSWORD: ci-config-placeholder
+          MYSQL_ROOT_PASSWORD: ci-config-placeholder
+        run: |
+          docker compose config --quiet
+          docker compose -f compose.yml -f compose.socket.yml config --quiet
 
   browser-road-check:
     name: browser-road-check

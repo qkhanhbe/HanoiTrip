@@ -1,8 +1,8 @@
 #!/usr/bin/env sh
 set -eu
 
-script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-repo_root=$(CDPATH= cd -- "$script_dir/../.." && pwd)
+script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+repo_root=$(CDPATH='' cd -- "$script_dir/../.." && pwd)
 terraform_dir="$repo_root/terraform/app"
 firewall_vars="$terraform_dir/mysql-firewall.auto.tfvars.json"
 

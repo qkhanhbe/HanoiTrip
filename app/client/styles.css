@@ -903,6 +903,42 @@ p {
   z-index: 5;
   box-shadow: 0 6px 24px #183e3920;
 }
+.traffic-legend {
+  position: absolute;
+  top: 218px;
+  left: 26px;
+  width: min(300px, calc(100% - 100px));
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fbfcfa;
+  color: #304a42;
+  font-size: 11px;
+  line-height: 1.6;
+  box-shadow: 0 3px 12px #183e3914;
+}
+.traffic-legend ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 6px 0;
+  padding: 0;
+  list-style: none;
+}
+.traffic-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.traffic-legend li > span {
+  width: 18px;
+  height: 5px;
+  border-radius: 2px;
+}
+.traffic-legend p {
+  margin: 0;
+  font-size: 10px;
+}
 .open-map .map-error button {
   margin-top: 12px;
   padding: 9px 12px;
@@ -1517,6 +1553,16 @@ p {
     max-width: calc(100% - 78px);
     padding: 5px 7px;
     font-size: 9px;
+  }
+  .traffic-legend {
+    top: 149px;
+    left: 14px;
+    width: min(265px, calc(100% - 78px));
+    padding: 7px 9px;
+    font-size: 10px;
+  }
+  .map-section:has(.traffic-legend) {
+    height: 480px;
   }
   .map-trip-label {
     bottom: 55px;

@@ -49,6 +49,7 @@ const upstream = async (input) => {
     return fixture ? Response.json(fixture) : new Response('', { status: 404 });
   }
   if (url.pathname === '/api/route/v4') {
+    assert.equal(url.searchParams.get('annotations'), 'congestion');
     const points = url.searchParams.getAll('point').map((point) => point.split(',').map(Number));
     assert.equal(points.length, 2);
     const [[originLat, originLng], [destinationLat, destinationLng]] = points;
@@ -60,6 +61,14 @@ const upstream = async (input) => {
           distance: 28_420,
           time: motorcycle ? 2_460_000 : 2_880_000,
           points_encoded: false,
+          annotations: motorcycle
+            ? undefined
+            : {
+                congestion: [
+                  { first: 0, last: 1, value: 'low' },
+                  { first: 1, last: 2, value: 'severe' },
+                ],
+              },
           points: {
             type: 'LineString',
             coordinates: [
@@ -167,6 +176,18 @@ try {
   await page.getByRole('button', { name: 'Tìm hành trình', exact: true }).click();
   await page.getByText('1 phương án').waitFor();
   await page.getByRole('article', { name: 'Phương án đường bộ 1' }).waitFor();
+  const trafficLegend = page.getByRole('complementary', { name: 'Chú giải giao thông' });
+  await trafficLegend.waitFor();
+  await trafficLegend.getByText('Ước tính, có thể khác thực tế.', { exact: false }).waitFor();
+  assert.deepEqual(await trafficLegend.getByRole('listitem').allTextContents(), [
+    'Thông thoáng',
+    'Đông/chậm',
+    'Ùn tắc',
+  ]);
+  assert.equal(
+    await trafficLegend.locator('time').getAttribute('datetime'),
+    '2026-09-30T06:00:00.000Z',
+  );
   await page.getByText('Tuyến đường bộ và geometry từ VIETMAP.', { exact: false }).waitFor();
   const attribution = page.getByRole('link', { name: '© VIETMAP', exact: true });
   await attribution.waitFor();
@@ -182,6 +203,9 @@ try {
   await page.getByRole('article', { name: 'Phương án đường bộ 1' }).waitFor();
   await page.waitForLoadState('networkidle');
   await page.setViewportSize({ width: 390, height: 844 });
+  await trafficLegend
+    .getByText('Chưa có dữ liệu giao thông. Ước tính có thể khác thực tế.', { exact: true })
+    .waitFor();
   assert.ok(
     await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
     'No horizontal overflow in road result state',

@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      promote:
+        description: 'Explicitly promote after staging checks (leave false for Portal swap practice)'
+        type: boolean
+        required: true
+        default: false
 
 permissions:
   contents: read
@@ -59,6 +65,33 @@ jobs:
           az keyvault show --resource-group "$RESOURCE_GROUP" --name "$KEY_VAULT_NAME" >/dev/null
           echo "Passwordless GitHub OIDC and scoped Azure reads succeeded." >> "$GITHUB_STEP_SUMMARY"
 
+  release-check:
+    name: Release checks on exact source SHA
+    if: ${{ github.ref == 'refs/heads/main' && vars.AZURE_CD_ENABLED == 'true' && vars.AZURE_CD_CONFIG_REVIEWED == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - name: Verify checked-out release identity
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci --include=dev --engine-strict --registry=https://registry.npmjs.org/ --strict-ssl=true --no-audit --no-fund
+      - run: npm run check
+      - run: npm test -- --coverage
+      - run: python3 -m unittest discover -s tests/ci -v
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser:road
+
+  release-security:
+    name: Release source security
+    if: ${{ github.ref == 'refs/heads/main' && vars.AZURE_CD_ENABLED == 'true' && vars.AZURE_CD_CONFIG_REVIEWED == 'true' }}
+    uses: ./.github/workflows/source-scan.yml
+
   deploy:
     # Manual dispatch must not deploy a feature branch. Keep blocked until the
     # release script is reviewed against the actual Portal-created Azure setup.
@@ -66,7 +99,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    needs: status
+    needs: [status, release-check, release-security]
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     environment: azure-sandbox
@@ -83,6 +116,8 @@ jobs:
       SLOT_NAME: staging
       REQUIRE_ROAD_PROVIDER: ${{ vars.AZURE_RELEASE_REQUIRE_ROAD_PROVIDER }}
       VIETMAP_API_KEY_SECRET: ${{ vars.AZURE_VIETMAP_API_KEY_SECRET }}
+      STAGING_BASEMAP_PROVIDER: ${{ vars.AZURE_STAGING_BASEMAP_PROVIDER || 'openfreemap' }}
+      VIETMAP_TILEMAP_API_KEY_SECRET: ${{ vars.AZURE_VIETMAP_TILEMAP_API_KEY_SECRET }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -168,6 +203,14 @@ jobs:
             az webapp config appsettings set --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" --slot "$SLOT_NAME" \
               --settings "BUILD_SHA=$GITHUB_SHA" "ROAD_PROVIDER=disabled" >/dev/null
           fi
+          if [ "$STAGING_BASEMAP_PROVIDER" = "vietmap" ]; then
+            az webapp config appsettings set --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" --slot "$SLOT_NAME" \
+              --settings "BASEMAP_PROVIDER=vietmap" \
+              "VIETMAP_TILEMAP_API_KEY=@Microsoft.KeyVault(VaultName=$KEY_VAULT_NAME;SecretName=$VIETMAP_TILEMAP_API_KEY_SECRET)" >/dev/null
+          else
+            az webapp config appsettings set --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" --slot "$SLOT_NAME" \
+              --settings "BASEMAP_PROVIDER=openfreemap" >/dev/null
+          fi
           az webapp restart --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" --slot "$SLOT_NAME"
           staging_host=$(az webapp show --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
             --slot "$SLOT_NAME" --query defaultHostName --output tsv)
@@ -178,12 +221,14 @@ jobs:
             --timeout 240 --output "$RUNNER_TEMP/staging-version.jsonl"
           BASE_URL="$staging_base" \
             EXPECTED_SHA="$GITHUB_SHA" npm run smoke
+          BASE_URL="$staging_base" EXPECTED_BASEMAP="$STAGING_BASEMAP_PROVIDER" \
+            node scripts/smoke-basemap.mjs
           if [ "$REQUIRE_ROAD_PROVIDER" = "true" ]; then
             BASE_URL="$staging_base" \
               EXPECTED_SHA="$GITHUB_SHA" SMOKE_ROAD=1 npm run smoke
           fi
       - name: Swap while observing production
-        if: ${{ vars.AZURE_PRODUCTION_SWAP_ENABLED == 'true' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.promote == true && vars.AZURE_PRODUCTION_SWAP_ENABLED == 'true' }}
         run: |
           production_host=$(az webapp show --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
             --query defaultHostName --output tsv)
@@ -210,10 +255,10 @@ jobs:
             exit 1
           fi
       - name: Report staging-only release
-        if: ${{ vars.AZURE_PRODUCTION_SWAP_ENABLED != 'true' }}
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.promote == true && vars.AZURE_PRODUCTION_SWAP_ENABLED == 'true') }}
         run: |
           echo "Image $GITHUB_SHA passed staging gates and was not swapped to production." >> "$GITHUB_STEP_SUMMARY"
-          echo "Set AZURE_PRODUCTION_SWAP_ENABLED=true only after release approval and rollback readiness." >> "$GITHUB_STEP_SUMMARY"
+          echo "For automated promotion, explicitly dispatch with promote=true and enable AZURE_PRODUCTION_SWAP_ENABLED after release approval. Normal pushes never swap. Portal swap is performed separately by the operator." >> "$GITHUB_STEP_SUMMARY"
       - name: Preserve release evidence
         if: ${{ always() }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
