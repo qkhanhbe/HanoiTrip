@@ -34,14 +34,43 @@ export function vietmapBasemap(
   if (!apiKey) throw new Error('Vietmap basemap requires VIETMAP_API_KEY');
   let cachedStyle: { expiresAt: number; value: Record<string, unknown> } | undefined;
 
-  async function getAsset(path: string): Promise<VietmapMapAsset> {
+  async function getAsset(path: string, kind: 'json' | 'png' | 'pbf'): Promise<VietmapMapAsset> {
     const url = new URL(path, mapsOrigin);
     url.searchParams.set('apikey', apiKey);
     try {
-      const response = await request(url, { signal: AbortSignal.timeout(10000) });
+      const response = await request(url, {
+        signal: AbortSignal.timeout(10000),
+        redirect: 'error',
+      });
       if (!response.ok) throw unavailable();
-      const contentType = response.headers.get('content-type') ?? 'application/octet-stream';
-      return { body: Buffer.from(await response.arrayBuffer()), contentType };
+      const mime = response.headers.get('content-type')?.split(';')[0].trim().toLowerCase();
+      const allowed = {
+        json: ['application/json'],
+        png: ['image/png'],
+        pbf: [
+          'application/x-protobuf',
+          'application/vnd.mapbox-vector-tile',
+          'application/octet-stream',
+        ],
+      };
+      // Live vector tiles may omit Content-Type. Treat only that case as binary;
+      // an explicit unexpected MIME type must still fail closed.
+      if (mime ? !allowed[kind].includes(mime) : kind !== 'pbf') throw unavailable();
+      const body = Buffer.from(await response.arrayBuffer());
+      if (!body.length) throw unavailable();
+      if (kind === 'json') JSON.parse(body.toString('utf8'));
+      if (
+        kind === 'png' &&
+        !body.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+      )
+        throw unavailable();
+      // Never forward an upstream-supplied HTML/XML MIME type on our own origin.
+      const contentType = {
+        json: 'application/json',
+        png: 'image/png',
+        pbf: 'application/x-protobuf',
+      }[kind];
+      return { body, contentType };
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw unavailable();
@@ -51,7 +80,7 @@ export function vietmapBasemap(
   return {
     async getStyle() {
       if (cachedStyle && cachedStyle.expiresAt > Date.now()) return cachedStyle.value;
-      const asset = await getAsset('/maps/styles/tm/style.json');
+      const asset = await getAsset('/maps/styles/tm/style.json', 'json');
       let decoded: unknown;
       try {
         decoded = JSON.parse(asset.body.toString('utf8'));
@@ -109,17 +138,20 @@ export function vietmapBasemap(
         y >= 2 ** z
       )
         throw new AppError(400, 'INVALID_MAP_TILE', 'Ô bản đồ chưa hợp lệ.');
-      return getAsset(`/maps/tiles/${version}/${z}/${x}/${y}.pbf`);
+      return getAsset(`/maps/tiles/${version}/${z}/${x}/${y}.pbf`, 'pbf');
     },
     async getSprite(file) {
       if (!/^base(?:@2x)?\.(?:json|png)$/.test(file))
         throw new AppError(404, 'NOT_FOUND', 'Không tìm thấy tài nguyên bản đồ.');
-      return getAsset(`/maps/styles/tm/sprite${file.slice(4)}`);
+      return getAsset(
+        `/maps/styles/tm/sprite${file.slice(4)}`,
+        file.endsWith('.png') ? 'png' : 'json',
+      );
     },
     async getGlyph(fontstack, range) {
       if (!/^[A-Za-z0-9 ,._-]{1,240}$/.test(fontstack) || !/^\d{1,6}-\d{1,6}$/.test(range))
         throw new AppError(400, 'INVALID_MAP_FONT', 'Tệp chữ bản đồ chưa hợp lệ.');
-      return getAsset(`/maps/fonts/${encodeURIComponent(fontstack)}/${range}.pbf`);
+      return getAsset(`/maps/fonts/${encodeURIComponent(fontstack)}/${range}.pbf`, 'pbf');
     },
   };
 }

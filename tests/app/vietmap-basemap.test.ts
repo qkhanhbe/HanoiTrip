@@ -17,6 +17,46 @@ const style = {
 };
 
 describe('VIETMAP basemap proxy', () => {
+  it('serves headerless provider tiles only as a fixed binary MIME type', async () => {
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(new Uint8Array([26, 1, 0])));
+    const asset = await vietmapBasemap(apiKey, request).getTile('vlc-20261008', 12, 2305, 1453);
+    expect(asset.contentType).toBe('application/x-protobuf');
+    expect(asset.body).toEqual(Buffer.from([26, 1, 0]));
+  });
+  it('rejects HTML instead of serving it on the application origin', async () => {
+    const request = vi
+      .fn<typeof fetch>()
+      .mockImplementation(
+        async () =>
+          new Response('<script>alert(1)</script>', { headers: { 'content-type': 'text/html' } }),
+      );
+    const provider = vietmapBasemap(apiKey, request);
+    for (const call of [
+      () => provider.getStyle(),
+      () => provider.getTile('vlc-20261008', 12, 2305, 1453),
+      () => provider.getSprite('base.json'),
+      () => provider.getSprite('base.png'),
+      () => provider.getGlyph('Noto Sans', '0-255'),
+    ]) {
+      await expect(call()).rejects.toMatchObject({ statusCode: 502 });
+    }
+    expect(request.mock.calls[0][1]).toMatchObject({ redirect: 'error' });
+  });
+
+  it('rejects malformed JSON and PNG assets even with an allowed MIME type', async () => {
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response('invalid', { headers: { 'content-type': 'application/json' } }),
+      )
+      .mockResolvedValueOnce(new Response('invalid', { headers: { 'content-type': 'image/png' } }));
+    const provider = vietmapBasemap(apiKey, request);
+    await expect(provider.getSprite('base.json')).rejects.toMatchObject({ statusCode: 502 });
+    await expect(provider.getSprite('base.png')).rejects.toMatchObject({ statusCode: 502 });
+  });
+
   it('rewrites styles to same-origin paths and strips upstream credentials', async () => {
     const request = vi.fn<typeof fetch>().mockResolvedValue(Response.json(style));
     const provider = vietmapBasemap(apiKey, request);
