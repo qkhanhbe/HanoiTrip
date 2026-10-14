@@ -31,9 +31,11 @@ import { PlaceInput } from './PlaceInput';
 import { JourneyCard, time } from './JourneyCard';
 import { RoadRouteCard } from './RoadRouteCard';
 const OpenMap = lazy(() => import('./OpenMap'));
+const VietmapMap = lazy(() => import('./VietmapMap'));
 const GoogleMap = lazy(() => import('./GoogleMap'));
 export default function App() {
   const [config, setConfig] = useState<PublicConfig>();
+  const Basemap = config?.basemapProvider === 'vietmap' ? VietmapMap : OpenMap;
   const [configError, setConfigError] = useState(false);
   const [origin, setOrigin] = useState<Point | null>(toPoint(places[0]));
   const [destination, setDestination] = useState<Point | null>(toPoint(places[2]));
@@ -531,7 +533,7 @@ export default function App() {
         <section className="map-section" aria-label="Bản đồ hành trình">
           {!config || plannerMode !== 'transit' || config.routesMode === 'demo' ? (
             <Suspense fallback={<p className="map-loading">Đang tải bản đồ Hà Nội…</p>}>
-              <OpenMap
+              <Basemap
                 route={route}
                 origin={origin}
                 destination={destination}

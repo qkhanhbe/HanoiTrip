@@ -2,6 +2,18 @@
 
 Ngày cập nhật: 2026-10-14. Đây là kế hoạch triển khai, không phải chứng nhận các bước đã hoàn thành.
 
+## Trạng thái phát hành mới nhất
+
+- Baseline OpenFreeMap refined đã được duyệt và swap thành công qua Portal: production chạy `4c1b96b0746e3d63a9e285d2976ab1fe9383bcad`; staging giữ bản trước `42d24aa22897aa0067d2c8fbaf703840d76e3652` trước khi phát hành candidate.
+- Observer production ghi 109 mẫu HTTP 200 trong cửa sổ swap; health/MySQL và tìm đường sau swap đạt. Đây là bằng chứng của cửa sổ quan sát, không phải SLA cho mọi client.
+- Image cũ được lưu theo digest `sha256:13032b6496a8b10605236c9f8aa66fe19efc85add7f2673df89ee86fa4c1b2cf`; cấu hình phục hồi lưu riêng ngoài Git trước khi ghi đè staging.
+- GitHub baseline CI/CD đã chạy thành công. GitLab MR CI-only đã qua các job scan/test/check/report; giữ lịch sử và cấu hình nội bộ riêng.
+- **Sửa kết luận VIETMAP local trước đó:** HTTP 200 chưa chứng minh render đạt. Tile hiện tại cần bộ giải mã trong SDK VIETMAP tiêu chuẩn; worker CSP đi kèm và MapLibre thuần đều gặp lỗi parse. Sprite/glyph/tile phải được chuyển thành URL tuyệt đối cùng origin, giữ nguyên placeholder.
+- Candidate sử dụng SDK VIETMAP 6.0.1 khi chọn provider VIETMAP, giữ key qua proxy server; đã kiểm tra render desktop/mobile và thêm browser check live vào bước verify staging.
+- Không tự promote candidate VIETMAP lên production. Push main chỉ phát hành staging; cờ swap workflow vẫn false.
+
+Các ghi nhận local và checkpoint bên dưới là lịch sử trước đợt phát hành này; trạng thái mới nhất ở mục này và kết quả pipeline của candidate được ưu tiên.
+
 ## Mục tiêu và giới hạn
 
 - Production đích phải phục vụ **OpenFreeMap đã refine UI, màu map và mức chi tiết theo zoom qua các bước trước**. Người dùng xác nhận đây không phải image production hiện tại.

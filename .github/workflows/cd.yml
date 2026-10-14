@@ -223,6 +223,9 @@ jobs:
             EXPECTED_SHA="$GITHUB_SHA" npm run smoke
           BASE_URL="$staging_base" EXPECTED_BASEMAP="$STAGING_BASEMAP_PROVIDER" \
             node scripts/smoke-basemap.mjs
+          npx playwright install --with-deps chromium
+          BASE_URL="$staging_base" EXPECTED_BASEMAP="$STAGING_BASEMAP_PROVIDER" EXPECTED_SHA="$GITHUB_SHA" \
+            node scripts/browser-basemap-live.mjs
           if [ "$REQUIRE_ROAD_PROVIDER" = "true" ]; then
             BASE_URL="$staging_base" \
               EXPECTED_SHA="$GITHUB_SHA" SMOKE_ROAD=1 npm run smoke
