@@ -66,6 +66,22 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertNotIn("TFSTATE_STORAGE_ACCOUNT", self.ci_workflow)
         self.assertNotIn("terraform -chdir=terraform/app apply", self.ci_workflow)
 
+    def test_release_checks_exact_commit_before_cloud_mutations(self):
+        self.assertIn("needs: [status, release-check, release-security]", self.workflow)
+        start = self.workflow.index("\n  release-check:")
+        end = self.workflow.index("\n  deploy:", start)
+        checks = self.workflow[start:end]
+        self.assertIn('test "$(git rev-parse HEAD)" = "$GITHUB_SHA"', checks)
+        self.assertIn("npm run check", checks)
+        self.assertIn("npm run test:browser:road", checks)
+        self.assertIn("uses: ./.github/workflows/source-scan.yml", checks)
+        self.assertNotIn("secrets: inherit", checks)
+        self.assertNotIn("id-token: write", checks)
+        self.assertNotIn("always()", checks)
+        source_scan = (ROOT / ".github/workflows/source-scan.yml").read_text()
+        self.assertIn("workflow_call:", source_scan)
+        self.assertIn("github.event_name", source_scan)
+
     def test_gitleaks_scans_only_history_reachable_from_the_current_pr(self):
         scan_script = (ROOT / "scripts/ci/scan-source.sh").read_text(encoding="utf-8")
         self.assertIn("--log-opts=HEAD", scan_script)
@@ -92,6 +108,9 @@ class ReleasePolicyTests(unittest.TestCase):
         start = self.workflow.index(marker)
         swap_section = self.workflow[start : start + 300]
         self.assertIn("vars.AZURE_PRODUCTION_SWAP_ENABLED == 'true'", swap_section)
+        self.assertIn("github.event_name == 'workflow_dispatch'", swap_section)
+        self.assertIn("inputs.promote == true", swap_section)
+        self.assertRegex(self.workflow, r"promote:[\s\S]*?default: false")
         self.assertIn("Production verification failed; reversing the swap.", self.workflow)
 
     def test_staging_uses_azure_reported_hosts_and_optional_live_road_gate(self):
@@ -142,6 +161,18 @@ class ReleasePolicyTests(unittest.TestCase):
         environment["VIETMAP_API_KEY_SECRET"] = "vietmap-api-key"
         configured = subprocess.run(command, env=environment, capture_output=True, text=True)
         self.assertEqual(configured.returncode, 0, configured.stderr)
+
+        environment["STAGING_BASEMAP_PROVIDER"] = "vietmap"
+        environment.pop("VIETMAP_TILEMAP_API_KEY_SECRET", None)
+        missing_tile = subprocess.run(command, env=environment, capture_output=True, text=True)
+        self.assertEqual(missing_tile.returncode, 2)
+        self.assertIn("VIETMAP_TILEMAP_API_KEY_SECRET", missing_tile.stderr)
+        environment["VIETMAP_TILEMAP_API_KEY_SECRET"] = "fixture-tile-secret"
+        valid_tile = subprocess.run(command, env=environment, capture_output=True, text=True)
+        self.assertEqual(valid_tile.returncode, 0, valid_tile.stderr)
+        environment["STAGING_BASEMAP_PROVIDER"] = "invalid-provider"
+        invalid = subprocess.run(command, env=environment, capture_output=True, text=True)
+        self.assertEqual(invalid.returncode, 2)
 
     def test_oidc_bootstrap_is_environment_scoped_and_keeps_cd_disabled(self):
         script = (ROOT / "scripts/release/configure-github-oidc.sh").read_text(

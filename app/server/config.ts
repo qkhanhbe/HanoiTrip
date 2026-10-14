@@ -11,6 +11,7 @@ const envSchema = z.object({
     .default('local-dev'),
   ROUTES_MODE: z.enum(['demo', 'google']).default('demo'),
   ROAD_PROVIDER: z.enum(['disabled', 'vietmap']).default('disabled'),
+  BASEMAP_PROVIDER: z.enum(['openfreemap', 'vietmap']).default('openfreemap'),
   DB_MODE: z.enum(['memory', 'mysql']).default('memory'),
   DB_MIGRATE_ON_START: z
     .enum(['true', 'false'])
@@ -37,6 +38,7 @@ const envSchema = z.object({
   GOOGLE_ROUTES_API_KEY: z.string().default(''),
   GOOGLE_MAPS_BROWSER_KEY: z.string().default(''),
   VIETMAP_API_KEY: z.string().default(''),
+  VIETMAP_TILEMAP_API_KEY: z.string().default(''),
 });
 export type Config = z.infer<typeof envSchema>;
 export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -53,6 +55,14 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
     throw new Error('Google mode requires separate Routes and browser Maps keys');
   if (config.ROAD_PROVIDER === 'vietmap' && !config.VIETMAP_API_KEY)
     throw new Error('Vietmap road provider requires VIETMAP_API_KEY');
+  if (
+    config.BASEMAP_PROVIDER === 'vietmap' &&
+    !config.VIETMAP_TILEMAP_API_KEY &&
+    !config.VIETMAP_API_KEY
+  )
+    throw new Error(
+      'Vietmap basemap requires VIETMAP_TILEMAP_API_KEY or VIETMAP_API_KEY with tile access',
+    );
   if (config.DB_MODE === 'mysql' && !config.MYSQL_PASSWORD)
     throw new Error('MySQL password is required');
   if (config.NODE_ENV === 'production' && (config.DB_MODE !== 'mysql' || !config.MYSQL_TLS))

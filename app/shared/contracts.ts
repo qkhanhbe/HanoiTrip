@@ -112,6 +112,17 @@ export interface RoadRoute {
     coordinates: [number, number][];
   };
   steps: RoadStep[];
+  traffic?: {
+    fetchedAt: string;
+    segments: TrafficSegment[];
+  };
+}
+export type CongestionLevel = 'low' | 'moderate' | 'congested' | 'unknown';
+export interface TrafficSegment {
+  /** Inclusive vertex indices; adjacent segments share their boundary vertex. */
+  first: number;
+  last: number;
+  level: CongestionLevel;
 }
 export interface RoadRoutesResponse {
   source: 'vietmap';
@@ -121,6 +132,7 @@ export interface RoadRoutesResponse {
 export interface PublicConfig {
   routesMode: 'demo' | 'google';
   roadProvider: 'disabled' | 'vietmap';
+  basemapProvider: 'openfreemap' | 'vietmap';
   mapsBrowserKey: string;
   storage: 'memory' | 'mysql';
   buildSha: string;

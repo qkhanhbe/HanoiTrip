@@ -24,6 +24,7 @@ const route = {
       distance: 5321.7,
       time: 901234,
       points_encoded: false,
+      annotations: { congestion: [{ first: 0, last: 1, value: 'heavy' }] },
       points: {
         type: 'LineString',
         coordinates: [
@@ -93,6 +94,10 @@ describe('VIETMAP adapters', () => {
           mode: 'car',
           durationSeconds: 901,
           distanceMeters: 5322,
+          traffic: {
+            fetchedAt: '2026-09-30T03:00:00.000Z',
+            segments: [{ first: 0, last: 1, level: 'congested' }],
+          },
           geometry: {
             type: 'LineString',
             coordinates: [
@@ -111,6 +116,7 @@ describe('VIETMAP adapters', () => {
     ]);
     expect(url.searchParams.get('points_encoded')).toBe('false');
     expect(url.searchParams.get('vehicle')).toBe('car');
+    expect(url.searchParams.get('annotations')).toBe('congestion');
   });
 
   it('rejects tampered and expired place tokens before calling the provider', async () => {

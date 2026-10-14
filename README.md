@@ -16,10 +16,11 @@ Chỉ đường giao thông công cộng hiện chưa phải tính năng chính 
 ## Công nghệ
 
 - React, TypeScript và Vite cho giao diện.
-- MapLibre GL cùng bản đồ nền OpenFreeMap/OpenStreetMap.
+- MapLibre GL cùng bản đồ nền OpenFreeMap/OpenStreetMap; có thể bật style nền VIETMAP riêng bằng `BASEMAP_PROVIDER`.
 - Fastify cho API.
 - MySQL cho dữ liệu hành trình đã lưu.
 - VIETMAP cho tìm kiếm địa điểm và chỉ đường bộ khi được cấu hình.
+- Tuyến đường bộ tô màu theo `annotations.congestion` từ VIETMAP: xanh (thoáng), vàng (đông/chậm), đỏ (ùn tắc; gồm mức nặng), xám (thiếu dữ liệu). Màu traffic là ước tính của nhà cung cấp, có thể lệch thực tế và Google Maps; chú giải hiện thời điểm lấy dữ liệu. ETA vẫn lấy từ `path.time`.
 - Vitest và Playwright cho kiểm thử.
 
 ## Chạy trên máy cá nhân
@@ -55,20 +56,22 @@ docker compose down
 
 Sao chép và điều chỉnh [.env.example](.env.example). Không commit API key hoặc mật khẩu thật.
 
-| Biến                                                       | Mục đích                                                           |
-| ---------------------------------------------------------- | ------------------------------------------------------------------ |
-| `DB_MODE`                                                  | Chọn chế độ lưu dữ liệu; dùng `mysql` cho chức năng lưu hành trình |
-| `DB_MIGRATE_ON_START`                                      | Tự tạo schema idempotent khi khởi động; mặc định tắt               |
-| `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER` | Thông tin kết nối MySQL                                            |
-| `MYSQL_PASSWORD`                                           | Mật khẩu của tài khoản ứng dụng                                    |
-| `MYSQL_TLS`, `MYSQL_CA_FILE`                               | Cấu hình kết nối TLS tùy môi trường                                |
-| `MYSQL_SOCKET_PATH`                                        | Unix socket thay cho TCP khi chạy local                            |
-| `ROUTES_MODE`                                              | Chọn dữ liệu hành trình minh họa hoặc nhà cung cấp transit         |
-| `GOOGLE_ROUTES_API_KEY`                                    | Khóa phía server cho hành trình transit khi được cấu hình          |
-| `ROAD_PROVIDER`                                            | `disabled` hoặc `vietmap`                                          |
-| `VIETMAP_API_KEY`                                          | Khóa phía server cho tìm kiếm, địa điểm và chỉ đường bộ            |
-| `BUILD_SHA`                                                | Mã phiên bản hiển thị qua endpoint `/version`                      |
-| `DIAGNOSTICS_ENABLED`                                      | Bật các endpoint chẩn đoán; mặc định tắt                           |
+| Biến                                                       | Mục đích                                                            |
+| ---------------------------------------------------------- | ------------------------------------------------------------------- |
+| `DB_MODE`                                                  | Chọn chế độ lưu dữ liệu; dùng `mysql` cho chức năng lưu hành trình  |
+| `DB_MIGRATE_ON_START`                                      | Tự tạo schema idempotent khi khởi động; mặc định tắt                |
+| `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER` | Thông tin kết nối MySQL                                             |
+| `MYSQL_PASSWORD`                                           | Mật khẩu của tài khoản ứng dụng                                     |
+| `MYSQL_TLS`, `MYSQL_CA_FILE`                               | Cấu hình kết nối TLS tùy môi trường                                 |
+| `MYSQL_SOCKET_PATH`                                        | Unix socket thay cho TCP khi chạy local                             |
+| `ROUTES_MODE`                                              | Chọn dữ liệu hành trình minh họa hoặc nhà cung cấp transit          |
+| `GOOGLE_ROUTES_API_KEY`                                    | Khóa phía server cho hành trình transit khi được cấu hình           |
+| `ROAD_PROVIDER`                                            | `disabled` hoặc `vietmap`                                           |
+| `BASEMAP_PROVIDER`                                         | `openfreemap` (mặc định) hoặc `vietmap`; key được proxy server-side |
+| `VIETMAP_API_KEY`                                          | Khóa dịch vụ phía server cho tìm kiếm, địa điểm và chỉ đường bộ |
+| `VIETMAP_TILEMAP_API_KEY`                                  | Khóa Tilemap riêng cho bản đồ nền VIETMAP; proxy phía server. Nếu bỏ trống, dùng khóa dịch vụ khi khóa đó đã được bật quyền tile. Lỗi upstream `423` có thể do hết quota hoặc chưa bật API cho key. |
+| `BUILD_SHA`                                                | Mã phiên bản hiển thị qua endpoint `/version`                       |
+| `DIAGNOSTICS_ENABLED`                                      | Bật các endpoint chẩn đoán; mặc định tắt                            |
 
 ## API chính
 

@@ -536,6 +536,7 @@ export default function App() {
                 origin={origin}
                 destination={destination}
                 pickTarget={pickTarget}
+                basemapProvider={config?.basemapProvider ?? 'openfreemap'}
                 onPick={pickOnMap}
               />
             </Suspense>
@@ -559,7 +560,9 @@ export default function App() {
               <span>
                 {plannerMode === 'transit' && config?.routesMode === 'google'
                   ? 'Bản đồ Google'
-                  : 'OpenFreeMap · Bản đồ Hà Nội'}
+                  : config?.basemapProvider === 'vietmap'
+                    ? 'VIETMAP · Bản đồ Hà Nội'
+                    : 'OpenFreeMap · Bản đồ Hà Nội'}
               </span>
             </div>
           </div>
