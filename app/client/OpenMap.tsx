@@ -1,14 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { LocateFixed, MapPin } from 'lucide-react';
-import {
-  Map,
-  Marker,
-  LngLatBounds,
-  NavigationControl,
-  Popup,
-  setWorkerUrl,
-  type GeoJSONSource,
-} from 'maplibre-gl';
+import { setWorkerUrl } from 'maplibre-gl';
+import type { Map, Marker, Popup, GeoJSONSource } from 'maplibre-gl';
+import * as maplibre from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { Point, RoadRoute, TripRoute } from '../shared/contracts';
@@ -135,6 +129,8 @@ export default function OpenMap({
   pickTarget,
   basemapProvider,
   onPick,
+  renderer = maplibre,
+  style,
 }: {
   route?: TripRoute | RoadRoute;
   origin: Point | null;
@@ -142,7 +138,10 @@ export default function OpenMap({
   pickTarget: 'origin' | 'destination';
   basemapProvider: 'openfreemap' | 'vietmap';
   onPick: (point: Point) => void;
+  renderer?: typeof maplibre;
+  style?: maplibre.StyleSpecification;
 }) {
+  const { Map, Marker, Popup, LngLatBounds, NavigationControl } = renderer;
   const element = useRef<HTMLDivElement>(null);
   const map = useRef<Map | null>(null);
   const trafficPopup = useRef<Popup | null>(null);
@@ -160,7 +159,7 @@ export default function OpenMap({
     try {
       instance = new Map({
         container: element.current,
-        style: basemapProvider === 'vietmap' ? '/v1/map/style' : OPENFREEMAP_STYLE,
+        style: style ?? OPENFREEMAP_STYLE,
         center: CENTER,
         zoom: 12.3,
         minZoom: 10,
@@ -237,7 +236,7 @@ export default function OpenMap({
       // A marker is informational; clicking it must not change the opposite endpoint.
       if (
         (event.originalEvent.target as HTMLElement)?.closest(
-          '.maplibregl-marker, .maplibregl-popup',
+          '.maplibregl-marker, .maplibregl-popup, .vietmapgl-marker, .vietmapgl-popup',
         )
       )
         return;
@@ -262,7 +261,7 @@ export default function OpenMap({
       instance.remove();
       map.current = null;
     };
-  }, [attempt, basemapProvider]);
+  }, [attempt, basemapProvider, renderer, style]);
 
   useEffect(() => {
     const instance = map.current;
